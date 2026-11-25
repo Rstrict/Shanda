@@ -1,0 +1,4 @@
+android/build/
+android/web/node_modules/
+*.jks
+*.keystore

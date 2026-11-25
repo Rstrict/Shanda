@@ -2,6 +2,20 @@
 
 面向山东大学 844 机械原理与机械设计复习的 React 练习组件。题库将《山大简答题手册（VIP + SVIP 论述题合编）》整理为关键词填空选择题，适合按章复习、排查易混概念和回顾错题。对于证明题、方案分析题，可以先口述完整思路，再用选项和解析核对关键词。
 
+## Android 安装
+
+在 [GitHub Releases](https://github.com/Rstrict/Shanda/releases/latest) 下载 Shanda844 APK，在 Android 9 或更高版本安装。题库、图表代码和样式随包提供，可以离线学习。应用内进度独立保存在手机上；在“数据与错题”中导出或导入 JSON，可以与浏览器版互迁。建议使用更新过的 Android System WebView。
+
+### 从源码构建 APK
+
+Windows 构建环境需要 PowerShell 7.4+、Node.js、pnpm 11、JDK 17、Android SDK Platform 34 和 Build Tools 35.0.0。创建或准备自己的发布密钥，将密钥库口令放入环境变量 SHANDA_SIGN_PASS，然后在仓库根目录运行：
+
+~~~powershell
+./android/build.ps1 -Sdk D:/Android/sdk -Keystore D:/keys/shanda.p12 -Alias shanda
+~~~
+
+脚本编译 React 和 Tailwind 资源，打包 Android WebView 宿主，签名并校验安装包。输出位于 android/build/Shanda844-1.0.0.apk；覆盖安装升级需要使用同一签名密钥。
+
 ## 题库范围
 
 [844.tsx](./844.tsx) 内置 247 题，包含 239 道简答题和 8 道 SVIP 论述题。内部 ID 为 q001 至 q247。页面同时保留原手册的来源题号，方便翻书核对。下表沿用手册章号。
