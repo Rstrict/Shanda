@@ -58,8 +58,8 @@ const EBBINGHAUS_STAGES = [
   { stage: 3, label: 'Stage 3 · 1天', shortLabel: 'S3 1天', intervalMs: 1 * DAY, desc: '短期巩固', color: '#3B82F6' },
   { stage: 4, label: 'Stage 4 · 2天', shortLabel: 'S4 2天', intervalMs: 2 * DAY, desc: '中期巩固', color: '#2563EB' },
   { stage: 5, label: 'Stage 5 · 4天', shortLabel: 'S5 4天', intervalMs: 4 * DAY, desc: '稳定记忆', color: '#1D4ED8' },
-  { stage: 6, label: 'Stage 6 · 7天', shortLabel: 'S6 7天', intervalMs: 7 * DAY, desc: '长期留存', color: '#059669' },
-  { stage: 7, label: 'Stage 7 · 15天', shortLabel: 'S7 掌握', intervalMs: 15 * DAY, desc: '已掌握', color: '#10B981' },
+  { stage: 6, label: 'Stage 6 · 7天', shortLabel: 'S6 掌握', intervalMs: 7 * DAY, desc: '已掌握 · 7天复习', color: '#059669' },
+  { stage: 7, label: 'Stage 7 · 15天', shortLabel: 'S7 巩固', intervalMs: 15 * DAY, desc: '已掌握 · 15天巩固', color: '#10B981' },
 ];
 
 const STORAGE_KEY_PROGRESS = 'sdu844_ebbinghaus_progress_v1';
@@ -1211,6 +1211,61 @@ function practiceVersion(q, skipImages) {
   return { ...q, question: TEXT_PARTS[q.id], answerTemplate, needsImage: false, partial: q.id !== 'q101' };
 }
 
+const MASTERY_STAGE = 6;
+const isMastered = stage => stage >= MASTERY_STAGE;
+const needsConsolidation = rec => rec?.wrongCount > 0 && (rec.correctStreak || 0) < 2;
+
+function normalizeSearch(text) {
+  return text.normalize('NFKC').toLowerCase().replace(/\s+/gu, '');
+}
+
+const SEARCH_INDEX = new Map(QUESTIONS.map(q => {
+  const answer = q.answerTemplate.replace(/\{\{(\d+)\}\}/g, (_, index) => q.blanks[index].answer);
+  const steps = ESSAYS[q.id]?.parts.flatMap(p => [p.prompt, ...p.points]) || [];
+  return [q.id, [q.sourceTag, q.question, answer, q.analysis, ...steps].map(normalizeSearch)];
+}));
+
+function validateBackup(data) {
+  const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const natural = n => Number.isSafeInteger(n) && n >= 0;
+  const timestamp = n => natural(n) && Number.isFinite(new Date(n).getTime());
+  function requireValid(condition, field) {
+    if (!condition) throw new Error('备份字段无效：' + field);
+  }
+  requireValid(object(data) && object(data.progress), 'progress');
+  if ('app' in data) requireValid(data.app === 'SDU_844_Ebbinghaus_Trainer', 'app');
+  const progress = {};
+  for (const [id, rec] of Object.entries(data.progress)) {
+    requireValid(SEARCH_INDEX.has(id), '未知题号 ' + id);
+    requireValid(object(rec), id);
+    requireValid(natural(rec.stage) && rec.stage <= 7, id + '.stage');
+    requireValid(timestamp(rec.nextReviewAt) && (rec.stage === 0 ? rec.nextReviewAt === 0 : rec.nextReviewAt > 0), id + '.nextReviewAt');
+    const clean = { stage: rec.stage, nextReviewAt: rec.nextReviewAt };
+    for (const key of ['wrongCount', 'correctStreak', 'lastReviewedAt']) {
+      const value = key in rec ? rec[key] : 0;
+      requireValid(key === 'lastReviewedAt' ? timestamp(value) : natural(value), id + '.' + key);
+      clean[key] = value;
+    }
+    progress[id] = clean;
+  }
+  const meta = {};
+  if ('meta' in data) {
+    requireValid(object(data.meta), 'meta');
+    for (const key of ['streakDays', 'timeOffsetMs', 'autoNext', 'lastStudyDate']) {
+      if (!(key in data.meta)) continue;
+      const v = data.meta[key];
+      if (key === 'lastStudyDate') {
+        const date = typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z');
+        requireValid(date && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === v, 'meta.' + key);
+      } else if (key === 'autoNext') requireValid(typeof v === 'boolean', 'meta.' + key);
+      else if (key === 'timeOffsetMs') requireValid(natural(v) && timestamp(Date.now() + v + 15 * DAY), 'meta.' + key);
+      else requireValid(natural(v), 'meta.' + key);
+      meta[key] = v;
+    }
+  }
+  return { progress, meta };
+}
+
 function correctRecord(old, now, retry, partial) {
   if (retry || partial || (old.stage > 0 && old.nextReviewAt > now)) {
     return { ...old, lastReviewedAt: now };
@@ -1424,7 +1479,7 @@ export default function App() {
       const stage = rec ? rec.stage : 0;
       stageCounts[stage] += 1;
       if (stage > 0) learned += 1;
-      if (stage >= 6) mastered += 1;
+      if (isMastered(stage)) mastered += 1;
       if (rec && rec.stage > 0 && rec.nextReviewAt && rec.nextReviewAt <= now) {
         dueCount += 1;
         dueIds.push(q.id);
@@ -1474,6 +1529,7 @@ export default function App() {
       stageCounts,
       forecast,
       mistakes,
+      pending: mistakes.filter(q => needsConsolidation(progress[q.id])),
     };
   }, [progress, now, tick]);
 
@@ -1740,18 +1796,17 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
-        const parsed = JSON.parse(evt.target.result);
-        if (parsed.progress && typeof parsed.progress === 'object') {
-          setProgress(parsed.progress);
-          if (parsed.meta) setMeta((prev) => ({ ...prev, ...parsed.meta }));
-          showToast('学习进度已成功导入恢复！', 'success');
-        } else {
-          showToast('JSON 格式不正确，未找到有效进度数据', 'error');
-        }
-      } catch {
-        showToast('文件解析失败，请确认是有效的 JSON 文件', 'error');
+        const backup = validateBackup(JSON.parse(evt.target.result));
+        setProgress(backup.progress);
+        setMeta(prev => ({ ...prev, ...backup.meta }));
+        if (autoNextTimerRef.current) clearTimeout(autoNextTimerRef.current);
+        setQueue([]);
+        showToast('学习进度已成功导入恢复！', 'success');
+      } catch (error) {
+        showToast(error instanceof SyntaxError ? '文件解析失败，请确认是有效的 JSON 文件' : error.message, 'error');
       }
     };
+    reader.onerror = () => showToast('备份文件读取失败', 'error');
     reader.readAsText(file);
     e.target.value = '';
   };
@@ -1823,12 +1878,15 @@ export default function App() {
     startSession(`第 ${chapter.code} 章 · ${chapter.name}${suffix}`, selected);
   };
 
+  const [mistakeView, setMistakeView] = useState('pending');
+  const visibleMistakes = mistakeView === 'pending' ? stats.pending : stats.mistakes;
+  const mistakeLabel = mistakeView === 'pending' ? '待巩固' : '历史错题';
   const startMistakeQuiz = () => {
-    if (stats.mistakes.length === 0) {
+    if (visibleMistakes.length === 0) {
       showToast('目前错题本为空，继续保持！', 'success');
       return;
     }
-    startSession('高频错题专项强化', stats.mistakes.map((m) => questionMap[m.id]));
+    startSession(mistakeLabel + '专项练习', visibleMistakes.map((m) => questionMap[m.id]));
   };
 
   // ============================================================================
@@ -1913,9 +1971,9 @@ export default function App() {
           >
             <BarChart3 className="w-4 h-4" />
             <span>数据与错题</span>
-            {stats.mistakes.length > 0 && (
+            {stats.pending.length > 0 && (
               <span className="ml-0.5 px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-red-100 text-red-600">
-                {stats.mistakes.length}
+                {stats.pending.length}
               </span>
             )}
           </button>
@@ -2018,7 +2076,7 @@ export default function App() {
                 <Award className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="text-2xl sm:text-3xl font-bold text-emerald-400">{stats.masteryRate}%</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">达到 Stage 6~7 ({stats.mastered}题)</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">达到 S{MASTERY_STAGE} 及以上 ({stats.mastered}题)</div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl p-4">
@@ -2105,7 +2163,7 @@ export default function App() {
               const rec = progress[q.id];
               if (rec && rec.stage > 0) {
                 chLearned += 1;
-                if (rec.stage >= 6) chMastered += 1;
+                if (isMastered(rec.stage)) chMastered += 1;
                 if (rec.nextReviewAt && rec.nextReviewAt <= now) chDue += 1;
               }
             });
@@ -2577,7 +2635,7 @@ export default function App() {
   // ============================================================================
 
   const filteredBankQuestions = useMemo(() => {
-    const kw = bankSearch.trim().toLowerCase();
+    const kw = normalizeSearch(bankSearch);
     return QUESTIONS.filter((q) => {
       if (bankChapter !== 'all' && String(q.chapterId) !== String(bankChapter)) return false;
       const rec = progress[q.id];
@@ -2585,14 +2643,12 @@ export default function App() {
       const wrongCount = rec ? rec.wrongCount : 0;
 
       if (bankStatus === 'new' && stage !== 0) return false;
-      if (bankStatus === 'learning' && !(stage >= 1 && stage <= 5)) return false;
-      if (bankStatus === 'mastered' && stage < 6) return false;
+      if (bankStatus === 'learning' && !(stage > 0 && !isMastered(stage))) return false;
+      if (bankStatus === 'mastered' && !isMastered(stage)) return false;
+      if (bankStatus === 'pending' && !needsConsolidation(rec)) return false;
       if (bankStatus === 'mistake' && wrongCount <= 0) return false;
 
-      if (kw) {
-        const hay = `${q.sourceTag} ${q.question} ${q.answerTemplate} ${q.blanks.map((b) => b.answer).join(' ')} ${q.analysis} ${ESSAYS[q.id]?.parts.map(p => [p.prompt, ...p.points].join(' ')).join(' ') || ''}`.toLowerCase();
-        if (!hay.includes(kw)) return false;
-      }
+      if (kw && !SEARCH_INDEX.get(q.id).some(field => field.includes(kw))) return false;
       return true;
     });
   }, [bankSearch, bankChapter, bankStatus, progress]);
@@ -2613,7 +2669,7 @@ export default function App() {
                 </span>
               </h1>
               <p className="text-xs text-slate-500 mt-0.5">
-                支持按题干/得分关键词搜索、章节筛选与掌握状态筛选，点击任意题目可展开红字关键词答案或单题精练
+                支持搜索题干、还原后的完整答案和解析、章节筛选与掌握状态筛选，点击任意题目可展开红字关键词答案或单题精练
               </p>
             </div>
 
@@ -2644,7 +2700,7 @@ export default function App() {
                   setBankSearch(e.target.value);
                   setBankVisibleCount(30);
                 }}
-                placeholder="搜索题干、得分关键词、公式或解析（如：根切、弹性滑动、基孔制）..."
+                placeholder="搜索题干、完整答案、公式或解析（如：根切、弹性滑动、基孔制）..."
                 className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
               {bankSearch && (
@@ -2684,7 +2740,8 @@ export default function App() {
                 { key: 'new', label: '未学' },
                 { key: 'learning', label: '学习中' },
                 { key: 'mastered', label: '已掌握' },
-                { key: 'mistake', label: '错题' },
+                { key: 'pending', label: '待巩固' },
+                { key: 'mistake', label: '历史错题' },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -2907,7 +2964,7 @@ export default function App() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-bold text-slate-900 text-base">艾宾浩斯记忆阶段分布</h2>
-                <p className="text-xs text-slate-500">Stage 0 (未学) → Stage 7 (15天长期掌握)</p>
+                <p className="text-xs text-slate-500">S0 未学 · S1–S{MASTERY_STAGE - 1} 学习中 · S{MASTERY_STAGE}–S7 已掌握</p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">
                 共 {stats.total} 题
@@ -2979,41 +3036,46 @@ export default function App() {
           </div>
         </div>
 
-        {/* 高频错题本 */}
+        {/* 错题本 */}
         <section className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
           <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-bold text-slate-900 text-base sm:text-lg flex items-center gap-2">
-                高频错题本
+                错题本
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-600">
-                  {stats.mistakes.length} 题
+                  {visibleMistakes.length} 题
                 </span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                按历史错误次数从高到低排序，考前冲刺优先攻克高频错题
+                连续两次到期完整答对后移出待巩固；历史错题保留全部答错记录。
               </p>
             </div>
 
-            {stats.mistakes.length > 0 && (
+            <div className="flex gap-2">
+              {[['pending', '待巩固', stats.pending.length], ['history', '历史错题', stats.mistakes.length]].map(([key, label, count]) =>
+                <button key={key} aria-pressed={mistakeView === key} onClick={() => setMistakeView(key)}
+                  className={mistakeView === key ? 'font-bold text-blue-700' : 'text-slate-500'}>{label}（{count}）</button>)}
+            </div>
+            {visibleMistakes.length > 0 && (
               <button
                 onClick={startMistakeQuiz}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
-                一键开始错题专项强化
+                练习{mistakeLabel}
               </button>
             )}
           </div>
 
-          {stats.mistakes.length === 0 ? (
+          {visibleMistakes.length === 0 ? (
             <div className="p-10 text-center text-slate-400 space-y-2">
               <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400" />
-              <p className="text-sm font-medium text-slate-600">暂无错题记录</p>
+              <p className="text-sm font-medium text-slate-600">{mistakeView === 'pending' ? '当前没有待巩固题' : '暂无历史错题'}</p>
               <p className="text-xs">在刷题过程中答错的题目会自动归档到这里。</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {stats.mistakes.map((item) => {
+              {visibleMistakes.map((item) => {
                 const ch = chapterMap[item.chapterId];
                 const rec = progress[item.id];
                 const stageInfo = EBBINGHAUS_STAGES[item.stage];
