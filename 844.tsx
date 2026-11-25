@@ -1272,52 +1272,343 @@ const DOMAIN_TERM_GROUPS = [
   ['联轴器', '离合器', '套筒联轴器', '凸缘联轴器', '滑块联轴器', '齿轮联轴器', '万向联轴器'],
   ['弹性套柱销联轴器', '弹性柱销联轴器', '牙嵌离合器', '摩擦离合器', '多片摩擦离合器'],
   ['非接触式密封', '迷宫式密封', '机械加工工艺性', '附加弯曲应力'],
+  ['螺栓联接', '双头螺柱联接', '螺钉联接', '紧定螺钉联接', '键联接', '花键联接', '过盈联接'],
+  ['自锁性能', '传动效率', '对中精度', '抗弯能力', '抗振性', '承载能力', '耐磨性', '调心性能'],
+  ['缓冲吸振', '过载打滑', '结构紧凑', '运转平稳', '制造简单', '成本较低', '装拆方便', '对中性好'],
+  ['接触应力大', '易磨损', '效率较低', '压轴力大', '易生静电', '制造困难', '产生轴向力'],
+  ['拉伸强度', '剪切强度', '挤压强度', '扭转强度', '弯曲强度', '疲劳强度'],
+  ['轴向定位', '周向固定', '轴向固定', '自动定心', '轴向平衡', '轴向移动'],
+  ['单向弯曲', '双向传矩', '单向轴向力', '双向轴向载荷', '径向载荷', '轴向载荷', '联合载荷'],
+  ['紧边在下', '松边在上', '紧边在上', '松边在下', '松边内侧', '紧边内侧', '松边外侧'],
+  ['圆头', '平头', '单圆头', '指状铣刀', '盘形铣刀'],
 ];
 
-// 扁平化术语 -> 所属组索引映射，并按长度降序排列用于精准最长匹配
+/** 高频多要点简答题的独立得分短句组（既用于精准命中整条采分点，也用于生成风格一致的短句干扰项） */
+const CLAUSE_POINT_GROUPS = [
+  ['人为的实物组合', '各实物间具有确定的相对运动', '能代替或减轻人类劳动', '完成有效的机械功', '自然形成的实物组合', '各实物间无相对运动', '仅用于传递静载荷'],
+  ['能保证定角速比传动', '中心距稍变时角速比不变', '齿廓间正压力方向始终不变', '传动较平稳', '齿廓间正压力方向周期变化', '中心距改变时传动比剧变'],
+  ['发生线沿基圆纯滚动', '渐开线任一点法线与基圆相切', '离轮心越远压力角越大', '基圆越大渐开线越平直', '基圆以内无渐开线', '基圆以内存在渐开线', '离轮心越远压力角越小'],
+  ['增加构件刚性', '使受力均衡', '将滑动摩擦变为滚动摩擦', '减少磨损', '增大接触应力', '降低机构刚性'],
+  ['结构简单紧凑', '制造和安装精度要求高', '成本较高', '不适于远距离两轴传动', '适用于两轴中心距较大场合', '缓冲吸振性能好'],
+  ['增大齿根过渡圆角半径', '降低表面粗糙度', '采用喷丸、辗压等表面强化处理', '保持润滑油清洁并定期更换', '适当加大模数以考虑磨损', '降低齿面硬度'],
+  ['箱体设置散热片增加散热面积', '蜗杆轴上装风扇', '油池内装蛇形冷却水管', '采用循环油冷却', '增大蜗杆头数降低散热', '减小箱体表面积'],
+  ['保证足够的最小油膜厚度', '把两摩擦表面完全隔开', '限制轴承温升以保持足够黏度', '维持足够润滑油流量', '防止润滑油被挤出', '防止边界油膜破裂'],
+  ['实现相距较远两轴传动', '实现变速和换向传动', '获得大的传动比', '实现运动的合成和分解', '实现过载打滑保护', '补偿两轴角偏移'],
+  ['增大被联接件的支撑面积', '减少接触处的压强', '避免拧紧螺母时擦伤被联接件表面', '直接承受主轴向工作拉力', '提高螺栓抗剪强度'],
+  ['被联接件为刚体', '各螺栓拉伸或剪切刚度及预紧力相同', '螺栓应变不超出弹性范围', '螺栓应变进入塑性阶段', '各螺栓受力完全不均'],
+  ['接合平稳、分离迅速彻底', '从动部分转动惯量小', '操作省力维修方便', '接合元件耐磨且易于散热', '只能在停车时接合'],
+  ['防止灰尘、水分等杂质进入轴承', '阻止润滑剂流失', '防止轴系热膨胀卡死', '增大轴承径向游隙'],
+  ['只加工局部凸台减少加工面积和费用', '螺栓支承处获平整支承面', '避免产生附加弯曲应力', '提高铸件流动性'],
+];
+
+/** 名词间关系词族（几何关系、数值大小、因果比例、方向与状态关系） */
+const RELATION_GROUPS = [
+  ['重合', '分离', '相交', '内切', '偏心'],
+  ['相切', '相交', '垂直', '平行', '共线'],
+  ['共线', '垂直', '平行', '相切', '错开'],
+  ['相同', '相反', '垂直', '无关'],
+  ['相等', '不相等', '成反比', '成正比'],
+  ['等于', '不等于', '大于', '小于'],
+  ['小于或等于', '大于', '等于', '小于'],
+  ['大于零', '等于零', '小于零', '大于一'],
+  ['成正比', '成反比', '无关', '呈平方关系'],
+  ['抵消', '叠加', '放大', '不变'],
+  ['依次减弱', '依次增强', '保持不变', '先增后减'],
+  ['依次降低', '依次升高', '保持不变', '先降后升'],
+  ['不可避免', '可以避免', '可以消除', '仅过载发生'],
+  ['可以防止', '不可避免', '无法消除', '必然发生'],
+  ['不直接受剪', '直接受剪', '仅受拉', '仅受扭'],
+  ['可分离', '不可分离', '刚性固定', '自调心'],
+  ['略短于', '等于', '略长于', '远大于'],
+  ['远离', '靠近', '正对', '垂直于'],
+  ['增大', '减小', '不变', '趋近于零'],
+  ['变大', '变小', '不变', '为零'],
+  ['周期变化', '保持恒定', '单调递增', '线性减小'],
+  ['纯滚动', '纯滑动', '相对滑动', '间歇运动'],
+  ['整圈转动', '往复摆动', '直线移动', '间歇转动'],
+  ['单向弯曲', '双向弯曲', '纯拉伸', '纯扭转'],
+  ['脉动循环', '对称循环', '静应力', '交变应力'],
+  ['偶数', '奇数', '质数', '任意整数'],
+];
+
+/** 考点类型中文标签（用于作答提示与多样性均衡） */
+const KIND_META = {
+  preset: { label: '核心得分点', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+  point: { label: '独立采分点', badgeClass: 'bg-teal-50 text-teal-700 border-teal-200' },
+  atom: { label: '精细要点', badgeClass: 'bg-sky-50 text-sky-700 border-sky-200' },
+  cause: { label: '因果要点', badgeClass: 'bg-orange-50 text-orange-700 border-orange-200' },
+  definition: { label: '定义核心', badgeClass: 'bg-purple-50 text-purple-700 border-purple-200' },
+  data: { label: '关键数据', badgeClass: 'bg-amber-50 text-amber-800 border-amber-200' },
+  relation: { label: '名词关系', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  term: { label: '专业术语', badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  enum: { label: '并列要点', badgeClass: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  feature: { label: '性能特征', badgeClass: 'bg-rose-50 text-rose-700 border-rose-200' },
+};
+
+/** 拆解粒度配置 */
+const CLOZE_GRANULARITIES = {
+  fine: { label: '精细拆解', desc: '拆至 2~7 字原子得分点' },
+  mixed: { label: '混合粒度', desc: '细词与整条短句混搭' },
+  clause: { label: '整条采分', desc: '优先 5~16 字完整短句' },
+};
+
+/** 挖空密度配置 */
+const CLOZE_DENSITIES = {
+  compact: { label: '精简', min: 1, max: 2, desc: '1~2空' },
+  standard: { label: '标准', min: 2, max: 3, desc: '2~3空' },
+  challenge: { label: '强化', min: 3, max: 5, desc: '3~5空' },
+  extreme: { label: '魔鬼', min: 4, max: 6, desc: '4~6空' },
+};
+
+/** 极性词反义映射：用于为“牙侧角大、对中性好”等特征短语构造高质量辨析干扰项 */
+const POLARITY_OPPOSITES = {
+  大: '小', 小: '大',
+  高: '低', 低: '高',
+  好: '差', 差: '好',
+  强: '弱', 弱: '强',
+  多: '少', 少: '多',
+  长: '短', 短: '长',
+  快: '慢', 慢: '快',
+  深: '浅', 浅: '深',
+  厚: '薄', 薄: '厚',
+  宽: '窄', 窄: '宽',
+};
+
+// 构建专业术语、关系词与独立采分点的倒排索引和按长度降序数组
 const TERM_TO_GROUP_IDX = new Map();
-DOMAIN_TERM_GROUPS.forEach((group, gIdx) => {
+const ALL_DOMAIN_TERMS = [];
+DOMAIN_TERM_GROUPS.forEach((group, idx) => {
   group.forEach((term) => {
-    if (!TERM_TO_GROUP_IDX.has(term)) TERM_TO_GROUP_IDX.set(term, gIdx);
+    if (!TERM_TO_GROUP_IDX.has(term)) {
+      TERM_TO_GROUP_IDX.set(term, idx);
+      ALL_DOMAIN_TERMS.push(term);
+    }
   });
 });
-const SORTED_DOMAIN_TERMS = Array.from(TERM_TO_GROUP_IDX.keys()).sort((a, b) => b.length - a.length);
+const SORTED_DOMAIN_TERMS = [...ALL_DOMAIN_TERMS].sort((a, b) => b.length - a.length);
 
-// 预先按章节聚合所有预设关键词，用于兜底生成高质量同章节干扰项
+const RELATION_TO_GROUP_IDX = new Map();
+const ALL_RELATION_TERMS = [];
+RELATION_GROUPS.forEach((group, idx) => {
+  group.forEach((term) => {
+    if (!RELATION_TO_GROUP_IDX.has(term)) {
+      RELATION_TO_GROUP_IDX.set(term, idx);
+      ALL_RELATION_TERMS.push(term);
+    }
+  });
+});
+const SORTED_RELATION_TERMS = [...ALL_RELATION_TERMS].sort((a, b) => b.length - a.length);
+
+const CLAUSE_TO_GROUP_IDX = new Map();
+const ALL_CLAUSE_POINTS = [];
+CLAUSE_POINT_GROUPS.forEach((group, idx) => {
+  group.forEach((clause) => {
+    if (!CLAUSE_TO_GROUP_IDX.has(clause)) {
+      CLAUSE_TO_GROUP_IDX.set(clause, idx);
+      ALL_CLAUSE_POINTS.push(clause);
+    }
+  });
+});
+const SORTED_CLAUSE_POINTS = [...ALL_CLAUSE_POINTS].sort((a, b) => b.length - a.length);
+
+// 预先按章节聚合所有预设关键词，以及全书分条得分短句池与精细短语池（用于生成等长干扰项）
 const CHAPTER_TERM_POOL = {};
+const CHAPTER_CLAUSE_POOL = {};
+const CHAPTER_FINE_POOL = {};
+const ALL_CLAUSE_POOL = new Set();
+const ALL_FINE_POOL = new Set();
+
+function extractClausesFromText(text) {
+  const results = [];
+  // 按分号、句号切分出完整分句
+  const rawSegments = text.split(/[；。]/);
+  let cursor = 0;
+  for (const raw of rawSegments) {
+    const segIdx = text.indexOf(raw, cursor);
+    cursor = segIdx + raw.length + 1;
+    if (!raw.trim()) continue;
+    // 若分句内部含冒号，取冒号后面的实质要点部分
+    const colonIdx = raw.lastIndexOf('：');
+    const baseOffset = colonIdx >= 0 ? colonIdx + 1 : 0;
+    const body = raw.slice(baseOffset);
+    // 按逗号拆出独立得分短句（保留 5~16 字的完整采分点）
+    const subParts = body.split('，');
+    let subCursor = 0;
+    for (const sub of subParts) {
+      const subPos = body.indexOf(sub, subCursor);
+      subCursor = subPos + sub.length + 1;
+      const leadMatch = sub.match(/^[\s（(]*[0-9一二三四五六七八九十①②③④⑤]+[)）.、\s]*/);
+      const leadLen = leadMatch ? leadMatch[0].length : 0;
+      const trimmed = sub.slice(leadLen).trim();
+      if (trimmed.length >= 5 && trimmed.length <= 16 && !/[：？]/.test(trimmed)) {
+        const absStart = segIdx + baseOffset + subPos + leadLen + sub.slice(leadLen).indexOf(trimmed);
+        results.push({
+          start: absStart,
+          end: absStart + trimmed.length,
+          text: trimmed,
+        });
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * 原子级细拆器：把分句内部的因果箭头(→)、斜杠(/)、顿号(、)、连词(和/或/且/并)、短动宾/修饰短语进一步拆细
+ */
+function extractFineSpansFromText(text) {
+  const results = [];
+  const pushPiece = (absStart, rawStr, kind = 'atom') => {
+    let s = rawStr;
+    let offset = 0;
+    // 去除首尾括号、空白与前导序号/虚词
+    const leadNoise = s.match(
+      /^[\s（(【]*([0-9一二三四五六七八九十①②③④⑤]+[)）.、\s]*)?(?:优点|缺点|区别|原因|措施|影响|目的|特点|原理|方法|例如|比如|其中|即|为|是|能|可|应|须|使|将|把|对|由|并|且|而|故|但|若|当|有|具|具有|一般|通常|主要|常用|常|多|宜|易|最|较|很|极|更|不|无)?[：:\s]*/
+    );
+    if (leadNoise && s.length - leadNoise[0].length >= 2) {
+      // 保留有关键否定/极性含义的“不/无/非/易/最”，避免把“不可避免”“无弹性滑动”“易磨损”切坏
+      const stripped = leadNoise[0];
+      if (!s.startsWith('有效') && !/(?:不|无|易|最)$/.test(stripped)) {
+        offset += stripped.length;
+        s = s.slice(stripped.length);
+      }
+    }
+    // 去掉尾部标点或孤立虚词
+    s = s.replace(/[\s）)】了等]+$/, '');
+    const trimmed = s.trim();
+    if (!trimmed || trimmed.length < 2 || trimmed.length > 8) return;
+    if (/[：？。；，]/.test(trimmed)) return;
+    if (LOW_VALUE_STOPWORDS.has(trimmed)) return;
+    const realStart = absStart + offset + s.indexOf(trimmed);
+    results.push({
+      start: realStart,
+      end: realStart + trimmed.length,
+      text: trimmed,
+      kind,
+    });
+  };
+
+  // 1. 按大标点切分，再处理内部的 →（因果）、/（斜杠并列）、、（顿号）以及 和/或/且/并
+  // 保留原文位置。先分开因果与并列，再拆每一段内部的修饰语。
+  const segments = /[^；。，：？！、（）()→/]+/g;
+  for (const block of text.matchAll(segments)) {
+    const pieces = block[0].split(/(?<=[\u4e00-\u9fff]{2})(?:和|或|且|并|及)(?=[\u4e00-\u9fff]{2})/g);
+    let offset = block.index;
+    for (const piece of pieces) {
+      pushPiece(offset, piece);
+      const modifiers = /(人为|确定|有效|连续|相对|[\u4e00-\u9fff]{2,4})的([\u4e00-\u9fff]{2,7})/g;
+      for (const match of piece.matchAll(modifiers)) {
+        const prefix = match[1].replace(/^.*?(人为|确定|有效|连续|相对)$/, '$1');
+        const head = match[2].split(/(?:和|或|且|并|及)/)[0];
+        const start = offset + match.index + match[1].length - prefix.length;
+        pushPiece(start, prefix + '的');
+        pushPiece(start + prefix.length + 1, head);
+      }
+      offset += piece.length + 1;
+    }
+  }
+  return results;
+}
+
 QUESTIONS.forEach((q) => {
   if (!CHAPTER_TERM_POOL[q.chapterId]) CHAPTER_TERM_POOL[q.chapterId] = new Set();
+  if (!CHAPTER_CLAUSE_POOL[q.chapterId]) CHAPTER_CLAUSE_POOL[q.chapterId] = new Set();
+  if (!CHAPTER_FINE_POOL[q.chapterId]) CHAPTER_FINE_POOL[q.chapterId] = new Set();
   q.blanks.forEach((b) => {
     CHAPTER_TERM_POOL[q.chapterId].add(b.answer);
     b.options.forEach((opt) => CHAPTER_TERM_POOL[q.chapterId].add(opt));
   });
+  const full = q.answerTemplate.replace(/\{\{(\d+)\}\}/g, (_, i) => q.blanks[Number(i)]?.answer || '');
+  extractClausesFromText(full).forEach((c) => {
+    CHAPTER_CLAUSE_POOL[q.chapterId].add(c.text);
+    ALL_CLAUSE_POOL.add(c.text);
+  });
+  extractFineSpansFromText(full).forEach((f) => {
+    CHAPTER_FINE_POOL[q.chapterId].add(f.text);
+    ALL_FINE_POOL.add(f.text);
+  });
 });
 
-/** 将题目还原为完整参考答案文本，并返回原预设空在完整文本中的精确位置 */
+/** 针对独立得分短句或精细短语生成语义微调干扰项 */
+function generateClauseMutations(clause) {
+  const mutations = new Set();
+  const rules = [
+    ['人为的', '自然形成的'],
+    ['人为', '自然'],
+    ['确定的相对运动', '不确定的自由运动'],
+    ['确定的', '不确定的'],
+    ['相对运动', '绝对静止'],
+    ['有效的机械功', '无用的摩擦热'],
+    ['有效的', '无效的'],
+    ['机械功', '静摩擦力'],
+    ['实物组合', '虚拟模型'],
+    ['减轻人类劳动', '增加额外载荷'],
+    ['增大', '减小'],
+    ['减小', '增大'],
+    ['提高', '降低'],
+    ['降低', '提高'],
+    ['防止', '加速'],
+    ['避免', '引起'],
+    ['相同', '相反'],
+    ['相反', '相同'],
+    ['不变', '周期变化'],
+    ['重合', '分离'],
+    ['无渐开线', '存在渐开线'],
+    ['不能', '可以自由'],
+    ['不宜', '最适宜'],
+    ['大于', '小于'],
+    ['小于', '大于'],
+    ['越多', '越少'],
+    ['越大', '越小'],
+    ['越小', '越大'],
+    ['刚体', '塑性变形体'],
+    ['弹性范围', '塑性屈服区'],
+    ['光滑', '粗糙'],
+    ['耐磨', '易磨损'],
+    ['易磨损', '极耐磨'],
+    ['平稳', '剧烈冲击'],
+    ['紧凑', '庞大松散'],
+    ['简单', '极其复杂'],
+    ['复杂', '极其简单'],
+  ];
+  for (const [from, to] of rules) {
+    if (clause.includes(from)) {
+      const mutated = clause.replace(from, to);
+      if (mutated !== clause) mutations.add(mutated);
+    }
+    if (mutations.size >= 2) break;
+  }
+  return Array.from(mutations);
+}
+
+/** 还原某道题的完整参考答案文本，并记录原题预设空在全文中的位置 */
 function reconstructFullAnswer(question) {
   const parts = parseTemplateParts(question.answerTemplate);
   let fullText = '';
   const presetSpans = [];
-  parts.forEach((p) => {
-    if (p.type === 'text') {
-      fullText += p.content;
+  parts.forEach((part) => {
+    if (part.type === 'text') {
+      fullText += part.content;
     } else {
-      const blank = question.blanks[p.index];
+      const blank = question.blanks[part.index];
+      const ans = blank?.answer || '';
       const start = fullText.length;
-      fullText += blank.answer;
+      fullText += ans;
+      const end = fullText.length;
       presetSpans.push({
         start,
-        end: fullText.length,
-        text: blank.answer,
-        presetOptions: blank.options,
-        priority: 3, // 原书精选得分点
+        end,
+        text: ans,
+        presetOptions: blank?.options || null,
+        kind: 'preset',
+        priority: 3,
       });
     }
   });
   return { fullText, presetSpans };
 }
 
-/** 针对数值、角度、比例、范围、百分比自动生成高仿真干扰项 */
+/** 针对数值、角度、比例、范围、百分比、带单位数据自动生成高仿真干扰项 */
 function generateNumericDistractors(term) {
   // 只改变数值，保留原文中的单位、冒号、范围符号和空格。
   const clean = term.trim();
@@ -1340,77 +1631,329 @@ function generateNumericDistractors(term) {
   return [...result];
 }
 
-/** 为动态识别的高价值词生成 3 个强干扰项 */
-function buildOptionsForSpan(span, question) {
+function extraNumericDistractors(term) {
+  const distractors = new Set();
+  const clean = term.trim();
+
+  // 1. 比例格式如 1:100
+  const ratioMatch = clean.match(/^(\d+):(\d+)$/);
+  if (ratioMatch) {
+    const [, a, b] = ratioMatch;
+    const base = parseInt(b, 10);
+    [base / 2, base * 2, Math.max(10, Math.round(base / 5)), base + 20].forEach((v) => {
+      if (v > 0 && v !== base) distractors.add(`${a}:${Math.round(v)}`);
+    });
+    return Array.from(distractors).slice(0, 3);
+  }
+
+  // 2. 范围格式如 8°~20° / 5~25 m/s / 20~50 HBS / 10%~15% / -20~60℃ / 8~10
+  const rangeMatch = clean.match(
+    /^(-?\d+(?:\.\d+)?)(°|%|℃)?~(-?\d+(?:\.\d+)?)(°|%|℃)?(\s*(?:HBS|MPa|m\/s|mm|圈|次))?$/
+  );
+  if (rangeMatch) {
+    const lo = parseFloat(rangeMatch[1]);
+    const hi = parseFloat(rangeMatch[3]);
+    const inlineUnit = rangeMatch[2] || rangeMatch[4] || '';
+    const tailUnit = rangeMatch[5] || '';
+    const span = Math.max(1, Math.abs(hi - lo));
+    const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+    [
+      [lo + span, hi + span],
+      [Math.round(lo / 2), Math.max(Math.round(lo / 2) + 1, Math.round(hi / 2))],
+      [hi, hi + span * 2],
+      [Math.max(0, lo - span), Math.max(1, lo)],
+    ].forEach(([nLo, nHi]) => {
+      if (nLo >= nHi) return;
+      const cand = inlineUnit
+        ? `${fmt(nLo)}${inlineUnit}~${fmt(nHi)}${inlineUnit}${tailUnit}`
+        : `${fmt(nLo)}~${fmt(nHi)}${tailUnit}`;
+      if (cand !== clean) distractors.add(cand);
+    });
+    return Array.from(distractors).slice(0, 3);
+  }
+
+  // 3. 枚举数字组如 15°、25°、40° 或 1、2、4
+  if (/^\d+(?:°)?(?:、\d+(?:°)?){1,3}$/.test(clean)) {
+    const unit = clean.includes('°') ? '°' : '';
+    const nums = clean.split('、').map((s) => parseInt(s, 10));
+    const shifts = unit ? [-5, 5, 10] : [1, 2, -1];
+    shifts.forEach((delta) => {
+      const shifted = nums.map((n) => Math.max(1, n + delta));
+      const cand = shifted.map((n) => `${n}${unit}`).join('、');
+      if (cand !== clean) distractors.add(cand);
+    });
+    return Array.from(distractors).slice(0, 3);
+  }
+
+  // 4. 单一数值+可选单位 如 40° / 350 HBS / 90% / 120 / 0.59 / 1.3 / 500 MPa / 12 m/s / 100mm
+  const singleMatch = clean.match(
+    /^(\d+(?:\.\d+)?)\s*(°|%|℃|mm|m\/s|HBS|MPa|倍|圈|个|次)?$/
+  );
+  if (singleMatch) {
+    const val = parseFloat(singleMatch[1]);
+    const unit = singleMatch[2] || '';
+    const keepSpace = /\s/.test(clean);
+    const sep = keepSpace && unit ? ' ' : '';
+    const isFloat = singleMatch[1].includes('.');
+    const candidates =
+      unit === '°'
+        ? [15, 20, 25, 30, 35, 40, 45, 60, 90, 120, 180]
+        : unit === '%'
+        ? [25, 50, 60, 75, 80, 90, 95, 99]
+        : isFloat
+        ? [
+            +(val * 0.5).toFixed(2),
+            +(val * 1.5).toFixed(2),
+            +(val + 0.3).toFixed(2),
+            +(val + 0.4).toFixed(2),
+          ]
+        : [
+            Math.round(val * 0.5),
+            Math.round(val * 1.5),
+            Math.round(val * 2),
+            Math.max(1, Math.round(val - (val >= 50 ? 50 : 5))),
+          ];
+    for (const c of shuffleArray(candidates)) {
+      if (c > 0 && c !== val) {
+        distractors.add(`${c}${sep}${unit}`);
+      }
+      if (distractors.size >= 3) break;
+    }
+    return Array.from(distractors).slice(0, 3);
+  }
+
+  // 5. 含符号不等式/等式关系 如 r < c / γ ≤ ρ' / ε > 1 / K < 2m / p ≤ [p]
+  const relOpMatch = clean.match(/^(.+?)\s*(≤|≥|<|>|=|≠)\s*(.+)$/);
+  if (relOpMatch) {
+    const [, lhs, op, rhs] = relOpMatch;
+    const altOps = ['≤', '≥', '<', '>', '=', '≠'].filter((o) => o !== op);
+    for (const o of shuffleArray(altOps)) {
+      distractors.add(`${lhs.trim()} ${o} ${rhs.trim()}`);
+      if (distractors.size >= 3) break;
+    }
+    return Array.from(distractors).slice(0, 3);
+  }
+
+  return [];
+}
+
+/** 针对极性特征短语（如“牙侧角大”、“当量摩擦系数大”、“对中性好”）生成辨析型干扰项 */
+function generatePolarityDistractors(term) {
+  const clean = term.trim();
+  if (clean.length < 3) return [];
+  const lastChar = clean[clean.length - 1];
+  const opp = POLARITY_OPPOSITES[lastChar];
+  if (!opp) return [];
+
+  const stem = clean.slice(0, -1);
+  const res = [`${stem}${opp}`];
+  // 补充合理对比项
+  if (lastChar === '大' || lastChar === '小') {
+    res.push(`${stem}不变`, `${stem}为零`);
+  } else if (lastChar === '高' || lastChar === '低') {
+    res.push(`${stem}中等`, `${stem}不变`);
+  } else if (lastChar === '好' || lastChar === '差') {
+    res.push(`${stem}极差`, `${stem}一般`);
+  }
+  return res;
+}
+
+/** 为动态识别的高价值词生成 3 个强干扰项（自动避免与当前句其他显式词撞车） */
+function buildOptionsForSpan(span, question, fullText = '') {
   const answer = span.text;
   const chosen = [answer];
   const used = new Set([answer]);
+  // 去掉当前空本身后的上下文文本，防止把句中已经明文出现的并列项当成干扰项
+  const otherText = fullText
+    ? fullText.slice(0, span.start) + ' ' + fullText.slice(span.end)
+    : '';
 
-  const tryAdd = (cand) => {
+  const tryAdd = (cand, allowInContext = false) => {
     if (!cand || used.has(cand)) return false;
-
+    if (cand.includes(answer) || answer.includes(cand)) return false;
+    if (!allowInContext && otherText && cand.length >= 2 && otherText.includes(cand)) return false;
     used.add(cand);
     chosen.push(cand);
     return true;
   };
 
+  const numeric = generateNumericDistractors(answer);
+  if (numeric.length === 3) return [answer, ...numeric];
+
   // 1. 优先从同族专业术语组中抽干扰项
   const groupIdx = TERM_TO_GROUP_IDX.get(answer);
   if (groupIdx !== undefined) {
     for (const cand of shuffleArray(DOMAIN_TERM_GROUPS[groupIdx])) {
-      tryAdd(cand);
+      tryAdd(cand, false);
       if (chosen.length >= 4) return chosen;
     }
   }
 
-  // 2. 尝试数值/角度/范围干扰项
-  const numDistractors = generateNumericDistractors(answer);
+  // 1.5 若是名词关系词，优先从同族关系词组中抽干扰项
+  const relGroupIdx = RELATION_TO_GROUP_IDX.get(answer);
+  if (relGroupIdx !== undefined) {
+    for (const cand of shuffleArray(RELATION_GROUPS[relGroupIdx])) {
+      tryAdd(cand, false);
+      if (chosen.length >= 4) return chosen;
+    }
+  }
+
+  if (span.presetOptions) {
+    for (const opt of span.presetOptions) {
+      tryAdd(opt, true);
+      if (chosen.length === 4) return chosen;
+    }
+  }
+
+  // 1.8 若是独立采分点短句（或长短语），优先从同主题短句组 + 语义微调 + 同章节/全书等长短句池抽取
+  const clauseGroupIdx = CLAUSE_TO_GROUP_IDX.get(answer);
+  if (clauseGroupIdx !== undefined) {
+    for (const cand of shuffleArray(CLAUSE_POINT_GROUPS[clauseGroupIdx])) {
+      tryAdd(cand, false);
+      if (chosen.length >= 4) return chosen;
+    }
+  }
+  if (span.kind === 'point' || answer.length >= 6) {
+    for (const cand of generateClauseMutations(answer)) {
+      tryAdd(cand, false);
+      if (chosen.length >= 4) return chosen;
+    }
+    const chClauses = shuffleArray(Array.from(CHAPTER_CLAUSE_POOL[question.chapterId] || [])).sort(
+      (a, b) => Math.abs(a.length - answer.length) - Math.abs(b.length - answer.length)
+    );
+    for (const cand of chClauses) {
+      if (Math.abs(cand.length - answer.length) <= 4) {
+        tryAdd(cand, false);
+        if (chosen.length >= 4) return chosen;
+      }
+    }
+    const allClauses = shuffleArray(Array.from(ALL_CLAUSE_POOL)).sort(
+      (a, b) => Math.abs(a.length - answer.length) - Math.abs(b.length - answer.length)
+    );
+    for (const cand of allClauses) {
+      if (Math.abs(cand.length - answer.length) <= 3) {
+        tryAdd(cand, false);
+        if (chosen.length >= 4) return chosen;
+      }
+    }
+  }
+
+  // 2. 尝试极性特征反义干扰项（如“牙侧角大” -> “牙侧角小”等）
+  for (const cand of generatePolarityDistractors(answer)) {
+    tryAdd(cand, false);
+    if (chosen.length >= 4) return chosen;
+  }
+
+  // 2.5 针对精细短语/因果要点尝试语义微调变异 + 同章节精细短语池
+  if (span.kind === 'atom' || span.kind === 'cause') {
+    for (const cand of generateClauseMutations(answer)) {
+      tryAdd(cand, false);
+      if (chosen.length >= 4) return chosen;
+    }
+    const chFine = shuffleArray(Array.from(CHAPTER_FINE_POOL[question.chapterId] || [])).sort(
+      (a, b) => Math.abs(a.length - answer.length) - Math.abs(b.length - answer.length)
+    );
+    for (const cand of chFine) {
+      if (Math.abs(cand.length - answer.length) <= 2) {
+        tryAdd(cand, false);
+        if (chosen.length >= 4) return chosen;
+      }
+    }
+    const allFine = shuffleArray(Array.from(ALL_FINE_POOL)).sort(
+      (a, b) => Math.abs(a.length - answer.length) - Math.abs(b.length - answer.length)
+    );
+    for (const cand of allFine) {
+      if (Math.abs(cand.length - answer.length) <= 2) {
+        tryAdd(cand, false);
+        if (chosen.length >= 4) return chosen;
+      }
+    }
+  }
+
+  // 3. 尝试数值/角度/范围/不等式干扰项
+  const numDistractors = extraNumericDistractors(answer);
   for (const cand of numDistractors) {
-    tryAdd(cand);
+    tryAdd(cand, true);
     if (chosen.length >= 4) return chosen;
   }
 
-  for (const cand of span.presetOptions || []) {
-    tryAdd(cand);
-    if (chosen.length >= 4) return chosen;
-  }
-
-  // 3. 从同章节词库挑选长度相近的术语
+  // 4. 从同章节词库挑选长度相近的术语
   const chPool = Array.from(CHAPTER_TERM_POOL[question.chapterId] || []);
   const similarChPool = shuffleArray(chPool).sort(
     (a, b) => Math.abs(a.length - answer.length) - Math.abs(b.length - answer.length)
   );
   for (const cand of similarChPool) {
     if (cand.length >= 2 && cand.length <= answer.length + 5) {
-      tryAdd(cand);
+      tryAdd(cand, false);
       if (chosen.length >= 4) return chosen;
     }
   }
 
-  // 4. 全书术语词库兜底
-  for (const cand of shuffleArray(SORTED_DOMAIN_TERMS)) {
+  // 5. 全书术语词库兜底（先避开上下文，仍不够再放宽）
+  const fallbackPool =
+    span.kind === 'relation' ? SORTED_RELATION_TERMS : SORTED_DOMAIN_TERMS;
+  for (const cand of shuffleArray(fallbackPool)) {
     if (Math.abs(cand.length - answer.length) <= 3) {
-      tryAdd(cand);
+      tryAdd(cand, false);
       if (chosen.length >= 4) return chosen;
     }
+  }
+  for (const cand of shuffleArray(fallbackPool)) {
+    tryAdd(cand, true);
+    if (chosen.length >= 4) return chosen;
   }
 
   return chosen;
 }
 
-/**
- * 智能随机挖空核心算法：
- * 1. 扫描完整参考答案，提取【原书核心得分点】+【专业术语库匹配词】+【数值/角度/比例】
- * 2. 严格过滤停用词与低价值词，去除重叠区间
- * 3. 随机抽取 1~2 个高价值考点（优先保证至少包含部分新挖空或随机组合，避免每次死板重复）
- * 4. 构造本次专属的 dynamicTemplate 与 dynamicBlanks
- */
-function buildDynamicCloze(question, previousTemplate) {
-  const { fullText, presetSpans } = reconstructFullAnswer(question);
-  const candidates = presetSpans.filter(s => !LOW_VALUE_STOPWORDS.has(s.text.trim()));
+/** 判断区间是否与已有区间重叠 */
+function isOverlapping(start, end, spans) {
+  return spans.some((s) => start < s.end && end > s.start);
+}
 
-  const isOverlapping = (start, end, list) =>
-    list.some((s) => !(end <= s.start || start >= s.end));
+/**
+ * 为单道题动态生成高价值随机挖空（支持多粒度拆解：精细拆解 / 混合 / 整条采分，且支持全考点模式）
+ */
+function buildDynamicCloze(
+  question,
+  density = 'standard',
+  excludeAnswers = [],
+  granularity = 'fine',
+  fullCoverage = false
+) {
+  const { fullText, presetSpans } = reconstructFullAnswer(question);
+  const excludeSet = new Set(excludeAnswers || []);
+  const candidates = presetSpans.filter(s => !LOW_VALUE_STOPWORDS.has(s.text.trim()));
+  const seenSpanKey = new Set(presetSpans.map((s) => `${s.start}_${s.end}`));
+
+  const isLowValue = (word, kind = 'term') => {
+    const t = word.trim();
+    const maxLen = kind === 'point' ? 16 : kind === 'cause' ? 10 : 12;
+    if (t.length < 2 || t.length > maxLen) return true;
+    if (LOW_VALUE_STOPWORDS.has(t)) return true;
+    if (/^[的地得是为主有在和与或及对把被将由从按以使让可能应须]+$/.test(t)) return true;
+    if (t.length <= 2 && /^[的地得是和与或及]/.test(t)) return true;
+    if (kind !== 'atom' && /[的地得是和与或及]$/.test(t)) return true;
+    return false;
+  };
+
+  // 全量收集所有粒度的候选点（不再在收集阶段因重叠丢弃细粒度子考点！）
+  const pushCandidate = (start, end, text, kind, priority) => {
+    const clean = text.trim();
+    if (!clean || LOW_VALUE_STOPWORDS.has(clean) || fullText.slice(start, end) !== clean) return;
+    if (kind !== 'data' && kind !== 'relation' && isLowValue(clean, kind)) return;
+    const key = `${start}_${end}`;
+    if (seenSpanKey.has(key)) return;
+    seenSpanKey.add(key);
+    candidates.push({
+      start,
+      end,
+      text: clean,
+      presetOptions: null,
+      kind,
+      priority,
+    });
+  };
 
   // 1. 匹配高价值专业术语库
   for (const term of SORTED_DOMAIN_TERMS) {
@@ -1420,63 +1963,206 @@ function buildDynamicCloze(question, previousTemplate) {
       const idx = fullText.indexOf(term, searchFrom);
       if (idx === -1) break;
       const end = idx + term.length;
-      if (!isOverlapping(idx, end, candidates)) {
-        candidates.push({
-          start: idx,
-          end,
-          text: term,
-          presetOptions: null,
-          priority: 2,
-        });
-      }
+      pushCandidate(idx, end, term, 'term', 3);
       searchFrom = end;
     }
   }
 
-  // 2. 匹配高价值数值/角度/比例/范围（如 40°、1:100、8°~20°、350 HBS、10%~15%）
-  const numRegex = /\d+(?:\.\d+)?(?:°|%)?[~～]\d+(?:\.\d+)?(?:°|%)?|\d+[:：]\d+|\d+(?:\.\d+)?\s*(?:°|%|mm|m\/s|HBS)/g;
+  // 2. 匹配高价值数据（范围、比例、带单位数值、角度/百分比、枚举数字、简短不等式关系）
+  const dataRegexes = [
+    /-?\d+(?:\.\d+)?(?:°|%|℃)?~-?\d+(?:\.\d+)?(?:°|%|℃)?(?:\s*(?:HBS|MPa|m\/s|mm|圈|次))?/g,
+    /\d+:\d+|\d+°(?:、\d+°){1,3}/g,
+    /\d+(?:\.\d+)?\s*(?:HBS|MPa|m\/s|mm|℃|°|%)|(?<![A-Za-z0-9.])\d+\.\d+(?![A-Za-z0-9.])/g,
+    /(?<![A-Za-z0-9.第\(（])\b(?:17|20|30|35|40|45|50|60|90|100|120|180|350|500)\b(?![.）\)])/g,
+    /[A-Za-zγαεψσpK][A-Za-z0-9_']{0,3}\s*(?:≤|≥|<|>|≠)\s*[\[\]A-Za-z0-9_αβγρ'·]+/g,
+  ];
   let m;
-  while ((m = numRegex.exec(fullText)) !== null) {
-    const text = m[0];
-    const start = m.index;
-    const end = start + text.length;
-    if (!isOverlapping(start, end, candidates)) {
-      candidates.push({
-        start,
-        end,
-        text,
-        presetOptions: null,
-        priority: 2,
-      });
+  for (const regex of dataRegexes) {
+    regex.lastIndex = 0;
+    while ((m = regex.exec(fullText)) !== null) {
+      pushCandidate(m.index, m.index + m[0].length, m[0], 'data', 3);
     }
   }
 
-  // 过滤掉任何误入黑名单的词（除非是原书明确手工标注的预设空）
-  const validCandidates = candidates.filter(c => !LOW_VALUE_STOPWORDS.has(c.text.trim()));
+  // 3. 匹配名词间的逻辑/几何/方向/状态关系词
+  for (const rel of SORTED_RELATION_TERMS) {
+    let searchFrom = 0;
+    while (searchFrom < fullText.length) {
+      const idx = fullText.indexOf(rel, searchFrom);
+      if (idx === -1) break;
+      const end = idx + rel.length;
+      pushCandidate(idx, end, rel, 'relation', 3);
+      searchFrom = end;
+    }
+  }
 
-  // 如果有效候选不足，直接退回原题预设
+  // 4. 识别定义类句子与机理句式的核心短语
+  const definitionPatterns = [
+    /(?:称为|称作|是指)([\u4e00-\u9fa5A-Za-z0-9]{2,9})/g,
+    /(?:靠|利用|通过|借助)([\u4e00-\u9fa5A-Za-z0-9]{2,9}?)(?=传递|驱动|补偿|承受|实现|维持|控制|防止|消除|冲过|隔开|产生|增压)/g,
+    /以([\u4e00-\u9fa5A-Za-z0-9]{2,9}?)(?=为工作面|为机架|为基准|为标准|为依据|为主)/g,
+    /按([\u4e00-\u9fa5A-Za-z0-9]{2,9}?)(?=计算|设计|校核|确定|处理)/g,
+    /(?:固定在|布置在|开在|放在|装在)([\u4e00-\u9fa5A-Za-z0-9]{2,8})/g,
+    /(?:适用于|适于|用于)([\u4e00-\u9fa5A-Za-z0-9]{2,8})/g,
+  ];
+  for (const pattern of definitionPatterns) {
+    pattern.lastIndex = 0;
+    while ((m = pattern.exec(fullText)) !== null) {
+      const captured = m[1];
+      if (!captured) continue;
+      const capStart = m.index + m[0].indexOf(captured);
+      const capEnd = capStart + captured.length;
+      pushCandidate(capStart, capEnd, captured, 'definition', 3);
+    }
+  }
+
+  // 5. 识别中文顿号“、”连接的并列枚举高价值得分项
+  const enumGroupRegex = /[\u4e00-\u9fa5A-Za-z0-9]{2,10}(?:、[\u4e00-\u9fa5A-Za-z0-9]{2,10})+/g;
+  while ((m = enumGroupRegex.exec(fullText)) !== null) {
+    const groupText = m[0];
+    let localOffset = 0;
+    groupText.split('、').forEach((seg) => {
+      let cleanSeg = seg;
+      let shift = 0;
+      const prefixMatch = seg.match(
+        /^(?:主要类型有|类型有|常见有|包括|分为|主要有|常用|采用|利用|因为|由于|称为|属于|有|如|是|为|靠|用|以|使|按|在)/
+      );
+      if (prefixMatch && seg.length - prefixMatch[0].length >= 2) {
+        shift = prefixMatch[0].length;
+        cleanSeg = seg.slice(shift);
+      }
+      const start = m.index + localOffset + shift;
+      const end = start + cleanSeg.length;
+      pushCandidate(start, end, cleanSeg, 'enum', 3);
+      localOffset += seg.length + 1;
+    });
+  }
+
+  // 6. 识别极性特征短语（如：牙侧角大、当量摩擦系数大、对中性好）
+  const polarityRegex = /[\u4e00-\u9fa5]{2,7}[大小高低好差强弱多少长短快慢深浅厚薄宽窄]/g;
+  while ((m = polarityRegex.exec(fullText)) !== null) {
+    let text = m[0];
+    let shift = 0;
+    const prefixMatch = text.match(/^(?:是因为|因为|由于|且|但|而|其|使|较|很|最|更|过|太|不|非|愈)/);
+    if (prefixMatch && text.length - prefixMatch[0].length >= 3) {
+      shift = prefixMatch[0].length;
+      text = text.slice(shift);
+    }
+    const start = m.index + shift;
+    const end = start + text.length;
+    if (text.length >= 3) {
+      pushCandidate(start, end, text, 'feature', 2);
+    }
+  }
+
+  // 7. 原子级细拆（因果→、斜杠/、连词和/或/且、短动宾、定语+中心词）
+  extractFineSpansFromText(fullText).forEach((f) => {
+    pushCandidate(f.start, f.end, f.text, f.kind, f.kind === 'cause' ? 3 : 2);
+  });
+
+  // 8. 精选与通用独立采分点短句（5~16 字）
+  for (const clause of SORTED_CLAUSE_POINTS) {
+    let searchFrom = 0;
+    while (searchFrom < fullText.length) {
+      const idx = fullText.indexOf(clause, searchFrom);
+      if (idx === -1) break;
+      pushCandidate(idx, idx + clause.length, clause, 'point', 2);
+      searchFrom = idx + clause.length;
+    }
+  }
+  extractClausesFromText(fullText).forEach((c) => {
+    let text = c.text;
+    let start = c.start;
+    const stripHead = text.match(/^(?:能|可|应|须|使|将|把|对|为|由|并|且|而|故|但|若|当|一般|通常)/);
+    if (stripHead && text.length - stripHead[0].length >= 5) {
+      start += stripHead[0].length;
+      text = text.slice(stripHead[0].length);
+    }
+    pushCandidate(start, start + text.length, text, 'point', 1);
+  });
+
+  // 过滤低价值词
+  const allValid = candidates.filter(
+    (c) => c.presetOptions || c.kind === 'data' || c.kind === 'relation' || !isLowValue(c.text, c.kind)
+  );
+
+  // 计算按粒度筛选后的主候选池：
+  // - fine（精细拆解）：优先 2~8 字原子/术语/数据/关系/定义/并列/因果；如果某条长短句内部已经拆出细词，则屏蔽该长短句
+  // - clause（整条采分）：优先 5~16 字独立采分点与预设空，其余作为补充
+  // - mixed（混合粒度）：全部保留自由混搭
+  const short = allValid.filter(c => c.text.length >= 2 && c.text.length <= 7);
+  const fine = short.length ? short : allValid;
+  // 最早结束的区间优先，可保留最多个不相交位置；同终点优先保留完整术语。
+  const finePositions = [];
+  for (const c of [...fine].sort((a,b) => a.end - b.end || a.start - b.start)) {
+    if (!isOverlapping(c.start, c.end, finePositions)) finePositions.push(c);
+  }
+  const allPoints = [...new Set(finePositions.map(c => c.text))];
+  const phrases = allValid.filter(c => c.text.length >= 5 && c.text.length <= 16 &&
+    (c.kind === 'point' || c.kind === 'preset' || extractClausesFromText(c.text).some(p => p.text === c.text)));
+  const validCandidates = fullCoverage || granularity === 'fine' ? finePositions :
+    granularity === 'clause' && phrases.length ? phrases : allValid;
   if (validCandidates.length === 0) {
     return {
       answerTemplate: question.answerTemplate,
-      blanks: question.blanks,
+      blanks: question.blanks.map((b) => ({ ...b, kind: 'preset' })),
       isDynamic: false,
+      candidateCount: question.blanks.length,
+      allPoints: question.blanks.map((b) => b.answer),
     };
   }
 
-  // 随机打乱候选池，选取 1~2 个不重叠的高价值空（至少保证能生成4个选项）
-  let targetCount = Math.min(validCandidates.length, fullText.length > 36 ? 2 : 1);
-  const shuffledPool = shuffleArray(validCandidates);
-  if (previousTemplate) {
-    const prior = reconstructFullAnswer({ ...question, ...previousTemplate }).presetSpans;
-    const used = new Set(prior.map(span => span.start));
-    shuffledPool.sort((a, b) => Number(used.has(a.start)) - Number(used.has(b.start)));
-    if (validCandidates.length === prior.length && prior.length > 1) targetCount = 1;
+  // 计算本题拆解出的全部不重复细粒度得分点列表（供解析区“全考点一览”展示）
+  const pointPreviewList = [];
+  const previewSeen = new Set();
+  const sortedForPreview = [...validCandidates].sort((a, b) => a.start - b.start || a.text.length - b.text.length);
+  for (const c of sortedForPreview) {
+    if (!previewSeen.has(c.text) && !isOverlapping(c.start, c.end, pointPreviewList)) {
+      previewSeen.add(c.text);
+      pointPreviewList.push(c);
+    }
   }
-  const picked = [];
 
-  for (const cand of shuffledPool) {
+  // 决定本次目标挖空数
+  const cfg = CLOZE_DENSITIES[density] || CLOZE_DENSITIES.standard;
+  let targetCount;
+  if (fullCoverage) {
+    // 「全考点挖空」模式：尽可能挖出所有不重叠的细粒度得分点
+    targetCount = finePositions.length;
+  } else {
+    const maxAllowedByLength = Math.max(1, Math.min(cfg.max, Math.floor(fullText.length / 6)));
+    const minCount = Math.min(cfg.min, pointPreviewList.length, maxAllowedByLength);
+    const maxCount = Math.min(maxAllowedByLength, pointPreviewList.length);
+    targetCount =
+      maxCount > minCount
+        ? minCount + Math.floor(Math.random() * (maxCount - minCount + 1))
+        : minCount;
+  }
+
+  // 排序策略：优先未刚考过的 + 维度多样性 + 精细模式偏向短小精准
+  const freshPool = shuffleArray(validCandidates.filter((c) => !excludeSet.has(c.text)));
+  const stalePool = shuffleArray(validCandidates.filter((c) => excludeSet.has(c.text)));
+
+  const seenKinds = new Set();
+  const diverseFirst = [];
+  const diverseRest = [];
+  freshPool.forEach((c) => {
+    const k = c.kind || 'term';
+    if (!seenKinds.has(k)) {
+      seenKinds.add(k);
+      diverseFirst.push(c);
+    } else {
+      diverseRest.push(c);
+    }
+  });
+  const orderedPool = fullCoverage
+    ? finePositions
+    : [...diverseFirst, ...diverseRest, ...stalePool];
+
+  const picked = [];
+  for (const cand of orderedPool) {
     if (isOverlapping(cand.start, cand.end, picked)) continue;
-    const opts = buildOptionsForSpan(cand, question);
+    const opts = buildOptionsForSpan(cand, question, fullText);
     if (opts.length >= 4) {
       picked.push({ ...cand, options: opts });
       if (picked.length >= targetCount) break;
@@ -1486,8 +2172,10 @@ function buildDynamicCloze(question, previousTemplate) {
   if (picked.length === 0) {
     return {
       answerTemplate: question.answerTemplate,
-      blanks: question.blanks,
+      blanks: question.blanks.map((b) => ({ ...b, kind: 'preset' })),
       isDynamic: false,
+      candidateCount: pointPreviewList.length,
+      allPoints,
     };
   }
 
@@ -1504,6 +2192,7 @@ function buildDynamicCloze(question, previousTemplate) {
   const dynamicBlanks = picked.map((span) => ({
     answer: span.text,
     options: span.options,
+    kind: span.kind || 'term',
   }));
 
   const isDynamic = picked.some((p) => !p.presetOptions);
@@ -1511,11 +2200,12 @@ function buildDynamicCloze(question, previousTemplate) {
     answerTemplate: dynamicTemplate,
     blanks: dynamicBlanks,
     isDynamic,
+    candidateCount: pointPreviewList.length,
+    allPoints,
   };
 }
 
 // ============================================================================
-
 const MASTERY_STAGE = 6;
 const isMastered = stage => stage >= MASTERY_STAGE;
 const needsConsolidation = rec => rec?.wrongCount > 0 && (rec.correctStreak || 0) < 2;
@@ -1556,13 +2246,14 @@ function validateBackup(data) {
   const meta = {};
   if ('meta' in data) {
     requireValid(object(data.meta), 'meta');
-    for (const key of ['streakDays', 'timeOffsetMs', 'autoNext', 'randomCloze', 'lastStudyDate']) {
+    for (const key of ['streakDays', 'timeOffsetMs', 'autoNext', 'randomCloze', 'granularity', 'lastStudyDate']) {
       if (!(key in data.meta)) continue;
       const v = data.meta[key];
       if (key === 'lastStudyDate') {
         const date = typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z');
         requireValid(date && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === v, 'meta.' + key);
-      } else if (key === 'autoNext' || key === 'randomCloze') requireValid(typeof v === 'boolean', 'meta.' + key);
+      } else if (key === 'granularity') requireValid(['fine', 'mixed', 'clause'].includes(v), 'meta.granularity');
+      else if (key === 'autoNext' || key === 'randomCloze') requireValid(typeof v === 'boolean', 'meta.' + key);
       else if (key === 'timeOffsetMs') requireValid(natural(v) && timestamp(Date.now() + v + 15 * DAY), 'meta.' + key);
       else requireValid(natural(v), 'meta.' + key);
       meta[key] = v;
@@ -1614,8 +2305,12 @@ function shuffleArray(arr) {
 }
 
 /** 生成会话队列中的单个题目项（每次生成自动打乱各空选项） */
-function createSessionItem(base, isRetry, randomCloze, previous) {
-  const question = randomCloze && !base.parts ? { ...base, ...buildDynamicCloze(base, previous) } : base;
+function createSessionItem(base, isRetry, randomCloze, previous, granularity = 'fine', fullCoverage = false) {
+  let question = base;
+  if (!base.parts) {
+    const cloze = buildDynamicCloze(base, 'compact', previous?.blanks.map(b => b.answer), granularity, fullCoverage);
+    question = randomCloze || fullCoverage ? { ...base, ...cloze } : { ...base, allPoints: cloze.allPoints };
+  }
   return {
     uid: `${question.id}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     base,
@@ -1876,7 +2571,7 @@ export default function App() {
         return;
       }
       if (autoNextTimerRef.current) clearTimeout(autoNextTimerRef.current);
-      const items = available.map((q) => createSessionItem(q, false, meta.randomCloze !== false));
+      const items = available.map((q) => createSessionItem(q, false, meta.randomCloze !== false, null, meta.granularity));
       setSessionTitle(title);
       setQueue(items);
       setCurrentIndex(0);
@@ -1888,26 +2583,32 @@ export default function App() {
       setSessionStats({ firstTryCorrect: 0, wrongInserts: 0, totalAnswered: 0 });
       setView('quiz');
     },
-    [showToast, skipImageQuestions, meta.randomCloze]
+    [showToast, skipImageQuestions, meta.randomCloze, meta.granularity]
   );
 
-  function changeCloze(switchMode) {
+  function changeCloze(switchMode, granularity, fullCoverage = false) {
+    if (granularity) setMeta(prev => ({ ...prev, granularity, randomCloze: true }));
     const enabled = switchMode ? meta.randomCloze === false : true;
     if (switchMode) setMeta(prev => ({ ...prev, randomCloze: enabled }));
     if (sessionDone || !queue.length) return;
     const updated = queue.map((item, i) => {
       if (item.base.parts || i < currentIndex || (i === currentIndex && questionStatus !== 'answering')) return item;
-      if (!switchMode && i !== currentIndex) return item;
-      return createSessionItem(item.base, item.isRetry, enabled, item.question);
+      if (!switchMode && !granularity && i !== currentIndex) return item;
+      return createSessionItem(item.base, item.isRetry, enabled, item.question, granularity || meta.granularity, fullCoverage);
     });
     if (updated[currentIndex] !== queue[currentIndex]) {
       setCurrentBlankIdx(0);
       setBlankAnswers(Array(updated[currentIndex].question.blanks.length).fill(null));
-      if (!switchMode && updated[currentIndex].question.answerTemplate === queue[currentIndex].question.answerTemplate)
-        showToast('本题只有这一组可用考点，已重排选项。', 'info');
+      if (!switchMode && !granularity && !fullCoverage && updated[currentIndex].question.answerTemplate === queue[currentIndex].question.answerTemplate)
+        showToast('本次考点相同，已重排选项。', 'info');
     }
     setQueue(updated);
   }
+
+  const granularityPicker = <label className="text-xs font-semibold">拆解粒度
+    <select className="ml-1 rounded border p-1" value={meta.granularity || 'fine'} onChange={e => changeCloze(false, e.target.value)}>
+      {Object.entries(CLOZE_GRANULARITIES).map(([value, info]) => <option key={value} value={value}>{info.label}</option>)}
+    </select></label>;
 
   const modeButton = <button aria-pressed={meta.randomCloze !== false} onClick={() => changeCloze(true)}
     className="rounded-xl border px-3 py-2 text-xs font-semibold">
@@ -2018,7 +2719,7 @@ export default function App() {
         // 2. 克隆该题并插入当前队列指针后第 3 或第 4 位（选项重新打乱）
         const offset = Math.random() < 0.5 ? 3 : 4;
         const insertIndex = Math.min(queue.length, currentIndex + 1 + offset);
-        const clonedRetryItem = createSessionItem(item.base, true, meta.randomCloze !== false, question);
+        const clonedRetryItem = createSessionItem(item.base, true, meta.randomCloze !== false, question, meta.granularity);
 
         setQueue((prevQueue) => {
           const nextQueue = [...prevQueue];
@@ -2043,6 +2744,7 @@ export default function App() {
       meta.timeOffsetMs,
       meta.autoNext,
       meta.randomCloze,
+      meta.granularity,
       goToNextQuestion,
     ]
   );
@@ -2469,7 +3171,7 @@ export default function App() {
               ))}
             </div>
 
-            {modeButton}
+            {modeButton}{granularityPicker}
             <button
               onClick={() => setSkipImageQuestions((v) => !v)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
@@ -2704,7 +3406,7 @@ export default function App() {
           </button>
 
           <div className="flex flex-wrap items-center gap-2">
-            {modeButton}
+            {modeButton}{granularityPicker}
             {/* 自动切题开关 */}
             <button
               onClick={() => setMeta((prev) => ({ ...prev, autoNext: !prev.autoNext }))}
@@ -2783,6 +3485,7 @@ export default function App() {
               </div>
               {!question.parts && questionStatus === 'answering' && meta.randomCloze !== false &&
                 <button className="rounded-lg border px-3 py-1 text-xs text-blue-700" onClick={() => changeCloze(false)}>换组挖空</button>}
+              {!question.parts && questionStatus === 'answering' && <button className="rounded-lg border px-3 py-1 text-xs text-blue-700" onClick={() => changeCloze(false, undefined, true)}>全考点挖空</button>}
               {!question.parts && question.blanks.length > 1 && (
                 <span className="text-xs text-slate-500 font-medium">
                   共 {question.blanks.length} 空 · 当前第 {Math.min(currentBlankIdx + 1, question.blanks.length)} 空
@@ -2962,6 +3665,10 @@ export default function App() {
                   <span>解析要点与易错提示</span>
                 </div>
                 <p className="text-sm text-slate-700 leading-relaxed">{question.partial && question.parts ? '可对照上方各小问核查遗漏。' : question.analysis}</p>
+                <div className="mt-3 text-xs"><strong>本题已细拆得分点</strong>
+                  <div className="mt-2 flex flex-wrap gap-2">{(question.allPoints || question.parts?.flatMap(p => p.points) || []).map(point =>
+                    <span key={point} className="rounded bg-blue-50 px-2 py-1">{point}</span>)}</div>
+                </div>
               </div>
             </div>
           )}

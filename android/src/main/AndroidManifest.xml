@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="cn.rstrict.shanda" android:versionCode="2" android:versionName="1.1.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="cn.rstrict.shanda" android:versionCode="3" android:versionName="1.2.0">
     <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="34"/>
     <application android:label="山大 844 简答精背" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">

@@ -27,7 +27,7 @@ try {
     & "$tools/aapt2.exe" link -I $platform --manifest src/main/AndroidManifest.xml -A build/assets -o "$work/base.apk"
     jar uf "$work/base.apk" -C $dex classes.dex
     & "$tools/zipalign.exe" -f 4 "$work/base.apk" "$work/aligned.apk"
-    $apk = 'build/Shanda844-1.1.0.apk'
+    $apk = 'build/Shanda844-1.2.0.apk'
     & "$tools/apksigner.bat" sign --ks $Keystore --ks-key-alias $Alias --ks-pass env:SHANDA_SIGN_PASS --out $apk "$work/aligned.apk"
     & "$tools/apksigner.bat" verify --verbose --print-certs $apk
 } finally { Pop-Location }
