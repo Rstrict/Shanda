@@ -1211,6 +1211,311 @@ function practiceVersion(q, skipImages) {
   return { ...q, question: TEXT_PARTS[q.id], answerTemplate, needsImage: false, partial: q.id !== 'q101' };
 }
 
+/** 低价值停用词黑名单：绝不挖空 */
+const LOW_VALUE_STOPWORDS = new Set([
+  '的', '地', '得', '是', '为', '有', '在', '与', '和', '或', '及', '对', '把', '被',
+  '将', '由', '从', '按', '以', '使', '让', '可', '能', '应', '须', '会', '就', '都',
+  '也', '还', '而', '但', '却', '因', '故', '若', '如', '则', '之', '其', '此', '该',
+  '这', '那', '各', '两', '一个', '一种', '一般', '通常', '主要', '特点', '优点', '缺点',
+  '作用', '方法', '情况', '条件', '原理', '要求', '机构', '机械', '零件', '构件', '材料',
+  '工作', '设计', '计算', '使用', '采用', '产生', '引起', '导致', '具有', '称为', '属于',
+  '进行', '需要', '可以', '不能', '不会', '不宜', '必须', '应当', '此时', '因此', '所以',
+  '因为', '由于', '同时', '以及', '或者', '但是', '如果', '否则', '其中', '分别', '不同',
+  '相同', '相等', '一定', '较大', '较小', '增大', '减小', '提高', '降低',
+]);
+
+/** 按专题分组的高价值专业术语词库（既用于识别挖空点，也用于生成同族强干扰项） */
+const DOMAIN_TERM_GROUPS = [
+  ['运动单元', '制造单元', '装配单元', '受力单元'],
+  ['面接触', '点或线接触', '点接触', '线接触'],
+  ['低副', '高副', '回转副', '移动副', '复合铰链'],
+  ['局部自由度', '虚约束', '复合铰链', '确定运动'],
+  ['曲柄摇杆机构', '双曲柄机构', '双摇杆机构', '曲柄滑块机构', '转动导杆机构', '偏心轮机构'],
+  ['死点', '急回特性', '极位夹角', '最小传动角', '运动不确定状态'],
+  ['刚性冲击', '柔性冲击', '无冲击'],
+  ['反转法', '图解法', '解析法', '展成法', '仿形法'],
+  ['尖顶从动件', '滚子从动件', '平底从动件', '盘形凸轮', '圆柱凸轮'],
+  ['基圆', '分度圆', '节圆', '齿顶圆', '齿根圆', '背锥'],
+  ['渐开线', '可分性', '定角速比', '内公切线', '啮合线', '啮合角'],
+  ['根切', '重合度', '齿侧间隙', '顶隙', '变位齿轮', '当量齿数', '标准齿轮'],
+  ['定轴轮系', '周转轮系', '差动轮系', '行星轮系', '惰轮', '过桥齿轮'],
+  ['行星轮', '转臂', '中心轮', '太阳轮'],
+  ['名义载荷', '计算载荷', '载荷系数', '当量动载荷', '基本额定动载荷'],
+  ['干摩擦', '边界摩擦', '液体摩擦', '混合摩擦'],
+  ['三角形螺纹', '梯形螺纹', '矩形螺纹', '锯齿形螺纹', '粗牙螺纹', '细牙螺纹'],
+  ['螺距', '导程', '牙型角', '牙型侧角', '螺纹升角', '当量摩擦系数', '自锁条件'],
+  ['预紧力', '残余预紧力', '总拉力', '工作拉力', '附加摩擦力', '防松'],
+  ['受拉螺栓', '受剪螺栓', '铰制孔用螺栓', '普通螺栓', '悬置螺母', '环槽螺母'],
+  ['普通平键', '导键', '滑键', '楔键', '切向键', '半圆键', '花键'],
+  ['小径定心', '齿形定心', '大径定心', '齿侧定心'],
+  ['调质', '正火', '表面淬火', '渗碳淬火', '渗氮', '喷丸'],
+  ['软齿面', '硬齿面', '齿轮轴', '人字齿轮', '斜齿轮', '直齿锥齿轮'],
+  ['轮齿折断', '齿面点蚀', '齿面磨损', '齿面胶合', '齿面塑性变形', '磨粒磨损', '研磨磨损'],
+  ['齿面接触疲劳强度', '齿根弯曲疲劳强度', '静强度', '疲劳寿命'],
+  ['赫兹接触', '悬臂梁', '第四强度理论', '危险剖面'],
+  ['工作情况系数', '动载系数', '齿向载荷分布系数', '齿宽系数', '齿形系数', '应力修正系数'],
+  ['脉动循环', '对称循环', '静应力', '交变应力'],
+  ['螺旋角', '导程角', '公称接触角', '压力角', '传动角'],
+  ['热平衡计算', '散热片', '蛇形冷却水管', '循环油冷却', '喷油润滑', '油池润滑'],
+  ['锡青铜', '灰铸铁', '碳钢', '合金钢', '巴氏合金'],
+  ['高速级', '中速级', '低速级'],
+  ['楔形增压', '弹性滑动', '打滑', '基准直径', '基准长度', '张紧轮', '小带轮包角'],
+  ['带传动', '齿轮传动', '链传动', '蜗杆传动'],
+  ['多边形效应', '跳齿和脱链', '链节距', '过渡链节', '小节距多排链'],
+  ['转轴', '传动轴', '心轴', '阶梯轴'],
+  ['应力集中', '弹性模量', '当量弯矩', '减载槽', '凹切圆角', '过盈配合', '间隙配合'],
+  ['滑动轴承', '滚动轴承', '球轴承', '滚子轴承', '调心轴承', '圆锥滚子轴承', '角接触球轴承', '深沟球轴承', '圆柱滚子轴承'],
+  ['最小油膜厚度', '非承载区', '油孔', '油沟', '油室', '轴承衬', '宽径比'],
+  ['极限转速', '游隙', '径向游隙', '轴向游隙', '基本额定寿命', '保持架'],
+  ['基孔制', '基轴制'],
+  ['派生轴向力', '背靠背', '面对面', '两支点各单向固定', '两端游动支承'],
+  ['联轴器', '离合器', '套筒联轴器', '凸缘联轴器', '滑块联轴器', '齿轮联轴器', '万向联轴器'],
+  ['弹性套柱销联轴器', '弹性柱销联轴器', '牙嵌离合器', '摩擦离合器', '多片摩擦离合器'],
+  ['非接触式密封', '迷宫式密封', '机械加工工艺性', '附加弯曲应力'],
+];
+
+// 扁平化术语 -> 所属组索引映射，并按长度降序排列用于精准最长匹配
+const TERM_TO_GROUP_IDX = new Map();
+DOMAIN_TERM_GROUPS.forEach((group, gIdx) => {
+  group.forEach((term) => {
+    if (!TERM_TO_GROUP_IDX.has(term)) TERM_TO_GROUP_IDX.set(term, gIdx);
+  });
+});
+const SORTED_DOMAIN_TERMS = Array.from(TERM_TO_GROUP_IDX.keys()).sort((a, b) => b.length - a.length);
+
+// 预先按章节聚合所有预设关键词，用于兜底生成高质量同章节干扰项
+const CHAPTER_TERM_POOL = {};
+QUESTIONS.forEach((q) => {
+  if (!CHAPTER_TERM_POOL[q.chapterId]) CHAPTER_TERM_POOL[q.chapterId] = new Set();
+  q.blanks.forEach((b) => {
+    CHAPTER_TERM_POOL[q.chapterId].add(b.answer);
+    b.options.forEach((opt) => CHAPTER_TERM_POOL[q.chapterId].add(opt));
+  });
+});
+
+/** 将题目还原为完整参考答案文本，并返回原预设空在完整文本中的精确位置 */
+function reconstructFullAnswer(question) {
+  const parts = parseTemplateParts(question.answerTemplate);
+  let fullText = '';
+  const presetSpans = [];
+  parts.forEach((p) => {
+    if (p.type === 'text') {
+      fullText += p.content;
+    } else {
+      const blank = question.blanks[p.index];
+      const start = fullText.length;
+      fullText += blank.answer;
+      presetSpans.push({
+        start,
+        end: fullText.length,
+        text: blank.answer,
+        presetOptions: blank.options,
+        priority: 3, // 原书精选得分点
+      });
+    }
+  });
+  return { fullText, presetSpans };
+}
+
+/** 针对数值、角度、比例、范围、百分比自动生成高仿真干扰项 */
+function generateNumericDistractors(term) {
+  // 只改变数值，保留原文中的单位、冒号、范围符号和空格。
+  const clean = term.trim();
+  const number = /\d+(?:\.\d+)?/g;
+  if (!/^(?:\d+(?:\.\d+)?(?:\s*(?:°|%|mm|m\/s|HBS))?(?:\s*[~～]\s*\d+(?:\.\d+)?(?:\s*(?:°|%|mm|m\/s|HBS))?)?|\d+\s*[:：]\s*\d+)$/.test(clean)) return [];
+  const ratio = /[:：]/.test(clean);
+  const result = new Set();
+  for (const factor of shuffleArray([0.75, 1.25, 1.5, 0.5, 2, 3, 4])) {
+    let index = 0;
+    const option = clean.replace(number, value => {
+      if (index++ === 0 && ratio) return value;
+      const places = (value.split('.')[1] || '').length;
+      return (Number(value) * factor).toFixed(places);
+    });
+    const values = option.match(number).map(Number);
+    if (option !== clean && (!ratio || values[1] > 0) &&
+        (!/[~～]/.test(option) || values[0] < values[1])) result.add(option);
+    if (result.size === 3) break;
+  }
+  return [...result];
+}
+
+/** 为动态识别的高价值词生成 3 个强干扰项 */
+function buildOptionsForSpan(span, question) {
+  const answer = span.text;
+  const chosen = [answer];
+  const used = new Set([answer]);
+
+  const tryAdd = (cand) => {
+    if (!cand || used.has(cand)) return false;
+
+    used.add(cand);
+    chosen.push(cand);
+    return true;
+  };
+
+  // 1. 优先从同族专业术语组中抽干扰项
+  const groupIdx = TERM_TO_GROUP_IDX.get(answer);
+  if (groupIdx !== undefined) {
+    for (const cand of shuffleArray(DOMAIN_TERM_GROUPS[groupIdx])) {
+      tryAdd(cand);
+      if (chosen.length >= 4) return chosen;
+    }
+  }
+
+  // 2. 尝试数值/角度/范围干扰项
+  const numDistractors = generateNumericDistractors(answer);
+  for (const cand of numDistractors) {
+    tryAdd(cand);
+    if (chosen.length >= 4) return chosen;
+  }
+
+  for (const cand of span.presetOptions || []) {
+    tryAdd(cand);
+    if (chosen.length >= 4) return chosen;
+  }
+
+  // 3. 从同章节词库挑选长度相近的术语
+  const chPool = Array.from(CHAPTER_TERM_POOL[question.chapterId] || []);
+  const similarChPool = shuffleArray(chPool).sort(
+    (a, b) => Math.abs(a.length - answer.length) - Math.abs(b.length - answer.length)
+  );
+  for (const cand of similarChPool) {
+    if (cand.length >= 2 && cand.length <= answer.length + 5) {
+      tryAdd(cand);
+      if (chosen.length >= 4) return chosen;
+    }
+  }
+
+  // 4. 全书术语词库兜底
+  for (const cand of shuffleArray(SORTED_DOMAIN_TERMS)) {
+    if (Math.abs(cand.length - answer.length) <= 3) {
+      tryAdd(cand);
+      if (chosen.length >= 4) return chosen;
+    }
+  }
+
+  return chosen;
+}
+
+/**
+ * 智能随机挖空核心算法：
+ * 1. 扫描完整参考答案，提取【原书核心得分点】+【专业术语库匹配词】+【数值/角度/比例】
+ * 2. 严格过滤停用词与低价值词，去除重叠区间
+ * 3. 随机抽取 1~2 个高价值考点（优先保证至少包含部分新挖空或随机组合，避免每次死板重复）
+ * 4. 构造本次专属的 dynamicTemplate 与 dynamicBlanks
+ */
+function buildDynamicCloze(question, previousTemplate) {
+  const { fullText, presetSpans } = reconstructFullAnswer(question);
+  const candidates = presetSpans.filter(s => !LOW_VALUE_STOPWORDS.has(s.text.trim()));
+
+  const isOverlapping = (start, end, list) =>
+    list.some((s) => !(end <= s.start || start >= s.end));
+
+  // 1. 匹配高价值专业术语库
+  for (const term of SORTED_DOMAIN_TERMS) {
+    if (LOW_VALUE_STOPWORDS.has(term) || term.length < 2) continue;
+    let searchFrom = 0;
+    while (searchFrom < fullText.length) {
+      const idx = fullText.indexOf(term, searchFrom);
+      if (idx === -1) break;
+      const end = idx + term.length;
+      if (!isOverlapping(idx, end, candidates)) {
+        candidates.push({
+          start: idx,
+          end,
+          text: term,
+          presetOptions: null,
+          priority: 2,
+        });
+      }
+      searchFrom = end;
+    }
+  }
+
+  // 2. 匹配高价值数值/角度/比例/范围（如 40°、1:100、8°~20°、350 HBS、10%~15%）
+  const numRegex = /\d+(?:\.\d+)?(?:°|%)?[~～]\d+(?:\.\d+)?(?:°|%)?|\d+[:：]\d+|\d+(?:\.\d+)?\s*(?:°|%|mm|m\/s|HBS)/g;
+  let m;
+  while ((m = numRegex.exec(fullText)) !== null) {
+    const text = m[0];
+    const start = m.index;
+    const end = start + text.length;
+    if (!isOverlapping(start, end, candidates)) {
+      candidates.push({
+        start,
+        end,
+        text,
+        presetOptions: null,
+        priority: 2,
+      });
+    }
+  }
+
+  // 过滤掉任何误入黑名单的词（除非是原书明确手工标注的预设空）
+  const validCandidates = candidates.filter(c => !LOW_VALUE_STOPWORDS.has(c.text.trim()));
+
+  // 如果有效候选不足，直接退回原题预设
+  if (validCandidates.length === 0) {
+    return {
+      answerTemplate: question.answerTemplate,
+      blanks: question.blanks,
+      isDynamic: false,
+    };
+  }
+
+  // 随机打乱候选池，选取 1~2 个不重叠的高价值空（至少保证能生成4个选项）
+  let targetCount = Math.min(validCandidates.length, fullText.length > 36 ? 2 : 1);
+  const shuffledPool = shuffleArray(validCandidates);
+  if (previousTemplate) {
+    const prior = reconstructFullAnswer({ ...question, ...previousTemplate }).presetSpans;
+    const used = new Set(prior.map(span => span.start));
+    shuffledPool.sort((a, b) => Number(used.has(a.start)) - Number(used.has(b.start)));
+    if (validCandidates.length === prior.length && prior.length > 1) targetCount = 1;
+  }
+  const picked = [];
+
+  for (const cand of shuffledPool) {
+    if (isOverlapping(cand.start, cand.end, picked)) continue;
+    const opts = buildOptionsForSpan(cand, question);
+    if (opts.length >= 4) {
+      picked.push({ ...cand, options: opts });
+      if (picked.length >= targetCount) break;
+    }
+  }
+
+  if (picked.length === 0) {
+    return {
+      answerTemplate: question.answerTemplate,
+      blanks: question.blanks,
+      isDynamic: false,
+    };
+  }
+
+  // 按在原文中的出现顺序排序并重建 answerTemplate
+  picked.sort((a, b) => a.start - b.start);
+  let dynamicTemplate = '';
+  let cursor = 0;
+  picked.forEach((span, idx) => {
+    dynamicTemplate += fullText.slice(cursor, span.start) + `{{${idx}}}`;
+    cursor = span.end;
+  });
+  dynamicTemplate += fullText.slice(cursor);
+
+  const dynamicBlanks = picked.map((span) => ({
+    answer: span.text,
+    options: span.options,
+  }));
+
+  const isDynamic = picked.some((p) => !p.presetOptions);
+  return {
+    answerTemplate: dynamicTemplate,
+    blanks: dynamicBlanks,
+    isDynamic,
+  };
+}
+
+// ============================================================================
+
 const MASTERY_STAGE = 6;
 const isMastered = stage => stage >= MASTERY_STAGE;
 const needsConsolidation = rec => rec?.wrongCount > 0 && (rec.correctStreak || 0) < 2;
@@ -1251,13 +1556,13 @@ function validateBackup(data) {
   const meta = {};
   if ('meta' in data) {
     requireValid(object(data.meta), 'meta');
-    for (const key of ['streakDays', 'timeOffsetMs', 'autoNext', 'lastStudyDate']) {
+    for (const key of ['streakDays', 'timeOffsetMs', 'autoNext', 'randomCloze', 'lastStudyDate']) {
       if (!(key in data.meta)) continue;
       const v = data.meta[key];
       if (key === 'lastStudyDate') {
         const date = typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(v + 'T00:00:00Z');
         requireValid(date && Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === v, 'meta.' + key);
-      } else if (key === 'autoNext') requireValid(typeof v === 'boolean', 'meta.' + key);
+      } else if (key === 'autoNext' || key === 'randomCloze') requireValid(typeof v === 'boolean', 'meta.' + key);
       else if (key === 'timeOffsetMs') requireValid(natural(v) && timestamp(Date.now() + v + 15 * DAY), 'meta.' + key);
       else requireValid(natural(v), 'meta.' + key);
       meta[key] = v;
@@ -1309,9 +1614,11 @@ function shuffleArray(arr) {
 }
 
 /** 生成会话队列中的单个题目项（每次生成自动打乱各空选项） */
-function createSessionItem(question, isRetry = false) {
+function createSessionItem(base, isRetry, randomCloze, previous) {
+  const question = randomCloze && !base.parts ? { ...base, ...buildDynamicCloze(base, previous) } : base;
   return {
     uid: `${question.id}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    base,
     questionId: question.id,
     question,
     isRetry,
@@ -1569,20 +1876,43 @@ export default function App() {
         return;
       }
       if (autoNextTimerRef.current) clearTimeout(autoNextTimerRef.current);
-      const items = available.map((q) => createSessionItem(q, false));
+      const items = available.map((q) => createSessionItem(q, false, meta.randomCloze !== false));
       setSessionTitle(title);
       setQueue(items);
       setCurrentIndex(0);
       setCurrentBlankIdx(0);
-      setBlankAnswers(Array(available[0].blanks.length).fill(null));
+      setBlankAnswers(Array(items[0].question.blanks.length).fill(null));
       setQuestionStatus('answering');
       setSessionDone(false);
       setAutoNextPaused(false);
       setSessionStats({ firstTryCorrect: 0, wrongInserts: 0, totalAnswered: 0 });
       setView('quiz');
     },
-    [showToast, skipImageQuestions]
+    [showToast, skipImageQuestions, meta.randomCloze]
   );
+
+  function changeCloze(switchMode) {
+    const enabled = switchMode ? meta.randomCloze === false : true;
+    if (switchMode) setMeta(prev => ({ ...prev, randomCloze: enabled }));
+    if (sessionDone || !queue.length) return;
+    const updated = queue.map((item, i) => {
+      if (item.base.parts || i < currentIndex || (i === currentIndex && questionStatus !== 'answering')) return item;
+      if (!switchMode && i !== currentIndex) return item;
+      return createSessionItem(item.base, item.isRetry, enabled, item.question);
+    });
+    if (updated[currentIndex] !== queue[currentIndex]) {
+      setCurrentBlankIdx(0);
+      setBlankAnswers(Array(updated[currentIndex].question.blanks.length).fill(null));
+      if (!switchMode && updated[currentIndex].question.answerTemplate === queue[currentIndex].question.answerTemplate)
+        showToast('本题只有这一组可用考点，已重排选项。', 'info');
+    }
+    setQueue(updated);
+  }
+
+  const modeButton = <button aria-pressed={meta.randomCloze !== false} onClick={() => changeCloze(true)}
+    className="rounded-xl border px-3 py-2 text-xs font-semibold">
+    智能随机挖空：{meta.randomCloze !== false ? '开启' : '固定预设'}
+  </button>;
 
   // 切换到下一题
   const goToNextQuestion = useCallback(() => {
@@ -1688,7 +2018,7 @@ export default function App() {
         // 2. 克隆该题并插入当前队列指针后第 3 或第 4 位（选项重新打乱）
         const offset = Math.random() < 0.5 ? 3 : 4;
         const insertIndex = Math.min(queue.length, currentIndex + 1 + offset);
-        const clonedRetryItem = createSessionItem(question, true);
+        const clonedRetryItem = createSessionItem(item.base, true, meta.randomCloze !== false, question);
 
         setQueue((prevQueue) => {
           const nextQueue = [...prevQueue];
@@ -1712,6 +2042,7 @@ export default function App() {
       touchStudyStreak,
       meta.timeOffsetMs,
       meta.autoNext,
+      meta.randomCloze,
       goToNextQuestion,
     ]
   );
@@ -2138,6 +2469,7 @@ export default function App() {
               ))}
             </div>
 
+            {modeButton}
             <button
               onClick={() => setSkipImageQuestions((v) => !v)}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
@@ -2372,6 +2704,7 @@ export default function App() {
           </button>
 
           <div className="flex flex-wrap items-center gap-2">
+            {modeButton}
             {/* 自动切题开关 */}
             <button
               onClick={() => setMeta((prev) => ({ ...prev, autoNext: !prev.autoNext }))}
@@ -2448,7 +2781,9 @@ export default function App() {
                   </span>
                 )}
               </div>
-              {question.blanks.length > 1 && (
+              {!question.parts && questionStatus === 'answering' && meta.randomCloze !== false &&
+                <button className="rounded-lg border px-3 py-1 text-xs text-blue-700" onClick={() => changeCloze(false)}>换组挖空</button>}
+              {!question.parts && question.blanks.length > 1 && (
                 <span className="text-xs text-slate-500 font-medium">
                   共 {question.blanks.length} 空 · 当前第 {Math.min(currentBlankIdx + 1, question.blanks.length)} 空
                 </span>
