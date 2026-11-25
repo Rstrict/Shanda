@@ -1139,6 +1139,110 @@ const QUESTIONS = RAW_QUESTIONS.map(
 // 3. 工具函数
 // ============================================================================
 
+/** 每个小问保留独立的口述提示及自评点；图号和页码沿用手册。 */
+function part(prompt, points, needsImage = false) {
+  return { prompt, points, needsImage };
+}
+
+const ESSAYS = {
+  q020: { pages: '6', parts: [
+    part('铰链四杆机构有曲柄需要哪两个条件？', ['最短杆与最长杆之和不大于另外两杆之和。', '满足杆长条件后，取最短杆或它的相邻杆为机架。']),
+    part('分别核对图 (a)、(b) 的杆长条件，再按机架位置判型。', ['图 (a) 满足杆长和条件；120 的机架与最短杆 25 相邻，故为曲柄摇杆机构。', '图 (b) 也满足杆长和条件；最短杆 40 作机架，故为双曲柄机构。'], true),
+  ] },
+  q111: { pages: '21', parts: [
+    part('从电机到输送带，说明各传动级的次序及布置理由。', ['V 带适合高速级；滚子链在高速下动载荷大，放在低速级。', '第一级小齿轮远离带轮，第二级大齿轮远离链轮，使扭转与弯曲引起的齿向偏载部分抵消。', '中间轴上两斜齿轮取相同旋向，使轴向力反向、部分抵消。', '链条紧边在上、松边在下，避免下垂的松边干涉紧边。']),
+    part('指出原图中的错误，并画出修正方案。', ['逐项在原图定位带、链、输入输出端、斜齿轮旋向和链条松紧边的布置问题。', '按电机 → V 带 → 两级斜齿轮 → 滚子链 → 输送带绘图，并标出齿轮位置、旋向和紧边。'], true),
+  ] },
+  q112: { pages: '21', parts: [
+    part('比较从远离或靠近高速级小齿轮的一端输入转矩时，齿向偏载如何变化。', ['远端输入时，轴的扭转和弯曲使载荷向相反方向偏移，两种偏载部分抵消。', '近端输入时，两种偏载同向叠加，齿宽上的载荷更不均匀。']),
+    part('把两种工况对应到原图方案，并选择合理方案。', ['A 为远端输入，B 为近端输入。A 的载荷沿齿宽分布更均匀，应选 A。'], true),
+  ] },
+  q113: { pages: '21–22', parts: [
+    part('轮 1 经轮 2 驱动轮 3；另一工况由轮 2 主动，向轮 1、3 等功率分流。比较轮 2 的应力循环。', ['轮 1 主动：轮 2 同一侧齿面每转受压一次，接触应力为脉动循环；齿根交替受拉、受压，为对称循环。', '轮 2 主动：同侧齿面每转受压两次，齿根同侧受拉两次，接触与弯曲应力均为脉动循环。']),
+    part('有限寿命下，哪种工况的轮 2 接触疲劳强度更高？', ['相同转数下，轮 2 主动时同侧齿面的接触循环次数是轮 1 主动时的两倍。', '轮 1 主动时循环次数少，接触寿命系数 KHN 较大，许用接触应力较高。']),
+    part('无限寿命下，哪种工况的轮 2 弯曲疲劳强度更高？', ['弯曲寿命系数 KFN 取 1；比较循环性质。', '对称循环下的弯曲疲劳极限约为脉动循环的 0.7 倍，故轮 2 主动时许用弯曲应力较高。']),
+  ] },
+  q124: { pages: '24', parts: [
+    part('写出正行程啮合效率及反行程自锁条件。', ['η = tan γ / tan(γ + φv)，γ 为导程角，φv 为当量摩擦角。', '反行程自锁要求 γ ≤ φv，故 γ + φv ≥ 2γ。']),
+    part('给出效率上界，并解释为何严格小于一半。', ['在工作角度区间 (0, π/2) 内正切递增，分母 tan(γ + φv) ≥ tan(2γ)，故 η ≤ tan γ / tan(2γ)。', '用二倍角公式得到上界 (1 − tan²γ)/2；因 γ > 0，上界严格小于 1/2。']),
+  ] },
+  q147: { pages: '27–28', parts: [
+    part('带、齿轮两级减速时，如何安排级次？从受力、保护和承载说明。', ['同功率下 Fe = P/v；高速级带速较高，有效拉力小，可减小带型或根数。', '带直接连接电机可缓冲吸振；过载打滑能保护电机及后续部件。', '后一级转矩较大，由承载能力强、结构紧凑的齿轮传动承担。']),
+    part('结合原图选择方案并比较纵向尺寸。', ['第二种方案将带放在高速级，且纵向尺寸较小，便于安装。'], true),
+  ] },
+  q196: { pages: '36', parts: [
+    part('正装角接触轴承，径向力 FR 作用在两支点之间，距支点 1、2 分别为 L1、L2，L1 > L2。求两端径向及轴向载荷。', ['对两支点分别取矩：Fr1 = FR·L2/(L1+L2)，Fr2 = FR·L1/(L1+L2)，且 Fr1 + Fr2 = FR。', '按题设 Fdi = e·Fri，故 Fd2 > Fd1；轴承 1 压紧、2 放松。', '无外加轴向力，Fa2 = Fd2，Fa1 = Fd2。']),
+    part('若仅受轴向力 FA，方向使轴承 2 压紧，重新计算两端载荷。', ['Fr1 = Fr2 = 0，因而 Fd1 = Fd2 = 0。', '轴承 1 放松，Fa1 = 0；轴承 2 承担外载，Fa2 = FA。']),
+  ] },
+  q197: { pages: '36–37', parts: [
+    part('两只 30000 型圆锥滚子轴承反装时，比较支承刚度、游隙调整和轴的疲劳强度。', ['反装为背靠背，压力中心向外，有效支承跨距大、支承刚度高。', '本方案用轴上圆螺母调游隙，调整不便；加工螺纹引入应力集中，降低轴的疲劳强度。']),
+    part('正装时，上述三项有何变化？', ['正装为面对面，压力中心向内，有效支承跨距较小，刚度较低。', '用端盖垫片调游隙，调整方便；轴上无需为圆螺母加工螺纹，有利于疲劳强度。']),
+    part('对照题图将两种安装方式与方案编号配对。', ['方案Ⅰ反装，方案Ⅱ正装。'], true),
+  ] },
+};
+
+// 原题有作图或读图要求，但下列文字小问可单独练习。
+const TEXT_PARTS = {
+  q029: '等速推程在何处产生何种冲击？说明原因。',
+  q055: '定义行星轮系，并说明典型结构中的构件。',
+  q101: '轮 1 经轮 2 驱动轮 3 时轮 2 叫什么？比较该工况与轮 2 分别驱动两侧齿轮时的应力循环。',
+  q130: '带传动的最大应力在哪里？写出其表达式。',
+  q146: '采用内侧张紧轮时，说明张紧轮应压在哪一侧带边，以及如何选择位置。',
+  q195: '圆柱滚子轴承有哪些承载、装拆和调心特点？',
+};
+
+function practiceVersion(q, skipImages) {
+  const essay = ESSAYS[q.id];
+  if (essay) {
+    const parts = essay.parts.filter(p => !skipImages || !p.needsImage);
+    if (!parts.length) return null;
+    return { ...q, parts, partial: parts.length < essay.parts.length,
+      question: parts.length === essay.parts.length ? q.question : q.sourceTag + ' · 文字小问', needsImage: parts.some(p => p.needsImage) };
+  }
+  if (!skipImages || !q.needsImage) return q;
+  if (!TEXT_PARTS[q.id]) return null;
+  if (q.id === 'q146') {
+    return { ...q, question: TEXT_PARTS.q146, answerTemplate: '张紧轮宜置于 {{0}}、靠近大带轮处。',
+      blanks: [q.blanks[1]], analysis: '内侧张紧时靠近大带轮，可减小对小带轮包角的不利影响。',
+      needsImage: false, partial: true };
+  }
+  let answerTemplate = q.answerTemplate;
+  if (q.id === 'q130') answerTemplate = '最大应力出现在 {{0}} 处，σmax = {{1}}（σ1 含紧边拉应力与离心拉应力）。';
+  return { ...q, question: TEXT_PARTS[q.id], answerTemplate, needsImage: false, partial: q.id !== 'q101' };
+}
+
+function correctRecord(old, now, retry, partial) {
+  if (retry || partial || (old.stage > 0 && old.nextReviewAt > now)) {
+    return { ...old, lastReviewedAt: now };
+  }
+  const stage = Math.min(7, old.stage + 1);
+  return { ...old, stage, nextReviewAt: now + EBBINGHAUS_STAGES[stage].intervalMs,
+    correctStreak: (old.correctStreak || 0) + 1, lastReviewedAt: now };
+}
+
+function EssayExercise({ question, status, onGrade }) {
+  const [revealed, setRevealed] = useState(false);
+  const [checked, setChecked] = useState({});
+  const allChecked = question.parts.every((p, i) => p.points.every((_, j) => checked[i + '-' + j]));
+  return <section className="space-y-4 rounded-xl bg-slate-50 p-4">
+    <p className="text-sm text-slate-600">手册第 {ESSAYS[question.id].pages} 页 · 勾选自己独立答出的要点</p>
+    {question.parts.map((p, i) => <div key={p.prompt}>
+      <h3 className="font-semibold">{i + 1}. {p.prompt}</h3>
+      {revealed && p.points.map((point, j) => {
+        const key = i + '-' + j;
+        return <label key={key} className="mt-2 flex items-baseline gap-2">
+          <input type="checkbox" checked={!!checked[key]} disabled={status !== 'answering'}
+            onChange={e => setChecked({ ...checked, [key]: e.target.checked })} />{point}
+        </label>;
+      })}
+    </div>)}
+    {status === 'answering' && <button className="rounded-lg bg-blue-600 px-4 py-2 text-white"
+      onClick={() => revealed ? onGrade(allChecked) : setRevealed(true)}>
+      {revealed ? (allChecked ? '提交自评 · 全部答出' : '提交自评 · 有遗漏，加入回炉') : '展开分步得分点'}
+    </button>}
+  </section>;
+}
+
 /** Fisher-Yates 数组洗牌 */
 function shuffleArray(arr) {
   const copy = [...arr];
@@ -1154,6 +1258,7 @@ function createSessionItem(question, isRetry = false) {
   return {
     uid: `${question.id}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     questionId: question.id,
+    question,
     isRetry,
     shuffledOptions: question.blanks.map((b) => shuffleArray(b.options)),
   };
@@ -1402,24 +1507,25 @@ export default function App() {
   // 启动一次刷题会话
   const startSession = useCallback(
     (title, questionList) => {
-      if (!questionList || questionList.length === 0) {
+      const available = questionList.map(q => practiceVersion(q, skipImageQuestions)).filter(Boolean);
+      if (!available.length) {
         showToast('当前没有可练习的题目', 'warning');
         return;
       }
       if (autoNextTimerRef.current) clearTimeout(autoNextTimerRef.current);
-      const items = questionList.map((q) => createSessionItem(q, false));
+      const items = available.map((q) => createSessionItem(q, false));
       setSessionTitle(title);
       setQueue(items);
       setCurrentIndex(0);
       setCurrentBlankIdx(0);
-      setBlankAnswers(Array(questionList[0].blanks.length).fill(null));
+      setBlankAnswers(Array(available[0].blanks.length).fill(null));
       setQuestionStatus('answering');
       setSessionDone(false);
       setAutoNextPaused(false);
       setSessionStats({ firstTryCorrect: 0, wrongInserts: 0, totalAnswered: 0 });
       setView('quiz');
     },
-    [showToast]
+    [showToast, skipImageQuestions]
   );
 
   // 切换到下一题
@@ -1433,7 +1539,7 @@ export default function App() {
       setSessionDone(true);
       return;
     }
-    const nextQ = questionMap[queue[nextIdx].questionId];
+    const nextQ = queue[nextIdx].question;
     setCurrentIndex(nextIdx);
     setCurrentBlankIdx(0);
     setBlankAnswers(Array(nextQ.blanks.length).fill(null));
@@ -1443,13 +1549,13 @@ export default function App() {
 
   // 处理选项选择
   const handleSelectOption = useCallback(
-    (optionText) => {
+    (optionText, essayGrade) => {
       if (questionStatus !== 'answering' || sessionDone) return;
       const item = queue[currentIndex];
       if (!item) return;
-      const question = questionMap[item.questionId];
+      const question = item.question;
       const blankDef = question.blanks[currentBlankIdx];
-      const isCorrect = optionText === blankDef.answer;
+      const isCorrect = question.parts ? essayGrade === true : optionText === blankDef.answer;
 
       const updatedAnswers = [...blankAnswers];
       updatedAnswers[currentBlankIdx] = { selected: optionText, isCorrect };
@@ -1459,7 +1565,7 @@ export default function App() {
 
       if (isCorrect) {
         // 如果还有下一个空位，继续作答下一个空
-        if (currentBlankIdx + 1 < question.blanks.length) {
+        if (!question.parts && currentBlankIdx + 1 < question.blanks.length) {
           setCurrentBlankIdx(currentBlankIdx + 1);
           return;
         }
@@ -1472,7 +1578,7 @@ export default function App() {
           firstTryCorrect: item.isRetry ? s.firstTryCorrect : s.firstTryCorrect + 1,
         }));
 
-        // 更新艾宾浩斯状态：本轮首次答对则晋级；回炉题答对则仅更新复习时间
+        // 仅完整、非回炉的新题或到期题推进复习计划
         const currentNow = Date.now() + (meta.timeOffsetMs || 0);
         setProgress((prev) => {
           const oldRec = prev[question.id] || {
@@ -1482,27 +1588,7 @@ export default function App() {
             correctStreak: 0,
             lastReviewedAt: 0,
           };
-          if (!item.isRetry) {
-            const nextStage = Math.min(7, oldRec.stage + 1);
-            return {
-              ...prev,
-              [question.id]: {
-                ...oldRec,
-                stage: nextStage,
-                nextReviewAt: currentNow + EBBINGHAUS_STAGES[nextStage].intervalMs,
-                correctStreak: (oldRec.correctStreak || 0) + 1,
-                lastReviewedAt: currentNow,
-              },
-            };
-          } else {
-            return {
-              ...prev,
-              [question.id]: {
-                ...oldRec,
-                lastReviewedAt: currentNow,
-              },
-            };
-          }
+          return { ...prev, [question.id]: correctRecord(oldRec, currentNow, item.isRetry, question.partial) };
         });
 
         // 若开启答对自动切题，0.7秒后自动下一题
@@ -1593,7 +1679,7 @@ export default function App() {
 
       if (questionStatus === 'answering') {
         const item = queue[currentIndex];
-        if (!item) return;
+        if (!item || item.question.parts) return;
         const options = item.shuffledOptions[currentBlankIdx] || [];
         let optIdx = -1;
         if (key === '1' || key === 'a') optIdx = 0;
@@ -1709,7 +1795,7 @@ export default function App() {
   };
 
   const startRandomQuiz = () => {
-    const pool = skipImageQuestions ? QUESTIONS.filter((q) => !q.needsImage) : QUESTIONS;
+    const pool = skipImageQuestions ? QUESTIONS.filter((q) => practiceVersion(q, true)) : QUESTIONS;
     const count = batchSize === 0 ? 20 : batchSize;
     const sampled = shuffleArray(pool).slice(0, Math.min(count, pool.length));
     startSession(`全书随机抽查（${sampled.length}题）`, sampled);
@@ -1718,7 +1804,7 @@ export default function App() {
   const startChapterQuiz = (chapter) => {
     let chQuestions = QUESTIONS.filter((q) => q.chapterId === chapter.id);
     if (skipImageQuestions) {
-      chQuestions = chQuestions.filter((q) => !q.needsImage);
+      chQuestions = chQuestions.filter((q) => practiceVersion(q, true));
     }
     if (chQuestions.length === 0) {
       showToast('该章节在当前过滤条件下暂无可练习题目', 'warning');
@@ -1999,7 +2085,7 @@ export default function App() {
               title="过滤掉依赖原题册插图的少数题目"
             >
               <ImageIcon className="w-3.5 h-3.5" />
-              <span>跳过原书含图题: {skipImageQuestions ? '已开启' : '关闭'}</span>
+              <span>跳过需看图或作图的小问： {skipImageQuestions ? '已开启' : '关闭'}</span>
             </button>
           </div>
         </div>
@@ -2168,7 +2254,7 @@ export default function App() {
             <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-4 text-xs text-blue-800 text-left flex items-start gap-2.5">
               <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <span>
-                所有已答题目均已按艾宾浩斯遗忘曲线更新下次复习时间；答错过的题目已重置至 Stage 1（20分钟后）并归入错题本。
+                首次学完或到期完成整题才推进复习计划；答错过的题目已重置至 Stage 1（20分钟后）并归入错题本。
               </span>
             </div>
 
@@ -2198,7 +2284,7 @@ export default function App() {
     }
 
     const item = queue[currentIndex];
-    const question = questionMap[item.questionId];
+    const question = item.question;
     const chapter = chapterMap[question.chapterId];
     const rec = progress[question.id];
     const stageInfo = EBBINGHAUS_STAGES[rec ? rec.stage : 0];
@@ -2311,6 +2397,9 @@ export default function App() {
             </h2>
           </div>
 
+          {question.partial && <p className="text-sm text-amber-700">本轮仅练文字小问；答对只记练习，不推进整题复习阶段。</p>}
+          {question.parts ? <EssayExercise key={item.uid} question={question} status={questionStatus}
+            onGrade={passed => handleSelectOption(null, passed)} /> : <>
           {/* 挖空答案展示区 */}
           <div className="bg-slate-50/90 border border-slate-200/80 rounded-2xl p-4 sm:p-6 text-slate-800 text-base sm:text-[17px] leading-loose">
             {templateParts.map((part, idx) => {
@@ -2406,6 +2495,8 @@ export default function App() {
             </div>
           )}
 
+          </>}
+
           {/* 作答结果反馈与原书解析区 */}
           {questionStatus !== 'answering' && (
             <div className="space-y-4 pt-1">
@@ -2415,7 +2506,7 @@ export default function App() {
                     <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
                     <div>
                       <div className="font-bold text-sm sm:text-base">
-                        回答正确！{item.isRetry ? '错题巩固通关' : '艾宾浩斯阶段已晋级'}
+                        回答正确！{question.partial ? '文字小问已完成' : item.isRetry ? '错题巩固通关' : '本次练习已记录'}
                       </div>
                       <div className="text-xs text-emerald-700/80">
                         {meta.autoNext && !autoNextPaused
@@ -2452,7 +2543,7 @@ export default function App() {
                           答错了 · 已安排在 3~4 题后重新出现巩固
                         </div>
                         <div className="text-xs text-red-700/80">
-                          请核对上方绿色正确答案与下方解析，按 Enter 继续下一题
+                          {question.parts ? '核对分步得分点后，按 Enter 继续。' : '请核对上方绿色正确答案与下方解析，按 Enter 继续下一题'}
                         </div>
                       </div>
                     </div>
@@ -2472,7 +2563,7 @@ export default function App() {
                   <AlertCircle className="w-4 h-4" />
                   <span>解析要点与易错提示</span>
                 </div>
-                <p className="text-sm text-slate-700 leading-relaxed">{question.analysis}</p>
+                <p className="text-sm text-slate-700 leading-relaxed">{question.partial && question.parts ? '可对照上方各小问核查遗漏。' : question.analysis}</p>
               </div>
             </div>
           )}
@@ -2499,7 +2590,7 @@ export default function App() {
       if (bankStatus === 'mistake' && wrongCount <= 0) return false;
 
       if (kw) {
-        const hay = `${q.sourceTag} ${q.question} ${q.answerTemplate} ${q.blanks.map((b) => b.answer).join(' ')} ${q.analysis}`.toLowerCase();
+        const hay = `${q.sourceTag} ${q.question} ${q.answerTemplate} ${q.blanks.map((b) => b.answer).join(' ')} ${q.analysis} ${ESSAYS[q.id]?.parts.map(p => [p.prompt, ...p.points].join(' ')).join(' ') || ''}`.toLowerCase();
         if (!hay.includes(kw)) return false;
       }
       return true;
@@ -2529,10 +2620,9 @@ export default function App() {
             {filteredBankQuestions.length > 0 && (
               <button
                 onClick={() => {
-                  const list =
-                    batchSize > 0
-                      ? filteredBankQuestions.slice(0, batchSize)
-                      : filteredBankQuestions;
+                  const pool = skipImageQuestions
+                    ? filteredBankQuestions.filter(q => practiceVersion(q, true)) : filteredBankQuestions;
+                  const list = batchSize > 0 ? pool.slice(0, batchSize) : pool;
                   startSession(`筛选专项练习（${list.length}题）`, list);
                 }}
                 className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition-colors"
@@ -2720,6 +2810,10 @@ export default function App() {
                       <div className="text-xs text-slate-600 leading-relaxed">
                         <span className="font-bold text-blue-700 mr-1.5">[解析要点]</span>
                         {q.analysis}
+                      {ESSAYS[q.id] && <span className="block mt-2">手册第 {ESSAYS[q.id].pages} 页</span>}
+                      {ESSAYS[q.id]?.parts.map(p => <span key={p.prompt} className="block mt-2">
+                        <strong>{p.prompt}</strong>{p.points.map(point => <span className="block" key={point}>• {point}</span>)}
+                      </span>)}
                       </div>
                     </div>
                   )}
